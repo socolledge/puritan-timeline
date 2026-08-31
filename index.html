@@ -957,6 +957,7 @@ function addScriptureRef(){
   addScriptureRefObj(ref);
   vsEl.value='';veEl.value='';
 }
+function commitScrOnBlur(){const el=$('scr-text');if(el&&el.value.trim()&&parseScriptureRefText(el.value.trim()))addScriptureRefFromText()}
 function addScriptureRefFromText(){
   const el=$('scr-text');const v=(el.value||'').trim();if(!v)return;
   const ref=parseScriptureRefText(v);
@@ -1176,7 +1177,7 @@ function renderWorkModal(){
   const roleRow=(role,arr)=>`<div class="row" style="margin:2px 0">
      <span class="small muted" style="width:80px;text-transform:capitalize">${role}s</span>
      ${arr.map((n,i)=>`<span class="chip on">${esc(n)}<span class="x" onclick="MW._${role}s.splice(${i},1);renderWorkModal()">×</span></span>`).join('')}
-     <input id="role-in-${role}" placeholder="add ${role}…" style="width:140px"></div>`;
+     <input id="role-in-${role}" placeholder="add ${role}… (Enter)" style="width:140px" onblur="setTimeout(commitRolesOnBlur,150)"></div>`;
   const origOpts=DB.works.filter(x=>x.id!==MW.id).map(x=>`<option value="${x.id}" ${x.id===MW.original_work_id?'selected':''}>${esc(x.title)}</option>`).join('');
   $('modal').innerHTML=`
   <h3>${MW.id?'Edit work':'New work'}</h3>
@@ -1335,7 +1336,27 @@ async function ensurePerson(name){
   DB.people.push(data);DB.people.sort((a,b)=>(a.sort_name||a.name).localeCompare(b.sort_name||b.name));
   return data.id;
 }
+/* Typed text in the author/editor/translator boxes only became a chip on Enter. Clicking
+   "Save work" straight afterwards threw it away silently — which is how works ended up in the
+   database with no author at all. Commit anything pending before saving, and on blur so the
+   chip visibly appears. */
+function commitPendingRoles(){
+  if(!MW)return false;
+  let added=false;
+  ['author','editor','translator'].forEach(role=>{
+    const el=$('role-in-'+role);
+    if(el&&el.value.trim()){MW['_'+role+'s'].push(el.value.trim());el.value='';added=true}
+  });
+  return added;
+}
+function commitRolesOnBlur(){
+  // guard: never re-render (and thus re-open) a modal that has already been closed by Save
+  const bg=$('modal-bg');
+  if(!MW||!bg||bg.classList.contains('hidden'))return;
+  if(commitPendingRoles())renderWorkModal();
+}
 async function saveWork(){
+  commitPendingRoles();
   if(!MW.title.trim()){toast('Title required');return}
   const rec={title:MW.title.trim(),pub:MW.pub,source_status:MW.source_status,original_work_id:MW.original_work_id,review_flag:MW.review_flag||'',urls:MW.urls,tags:MW.tags,notes:MW.notes};
   let wid=MW.id;
@@ -1760,7 +1781,7 @@ function detPanelHtml(){
         <div class="edit" id="ed-loc">
           <div class="row">
             <select id="loc-type">${Object.entries(LOC_TYPES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
-            <input id="loc-val" placeholder="value" style="width:90px" onkeydown="if(event.key==='Enter'){event.preventDefault();addLoc()}">
+            <input id="loc-val" placeholder="value" style="width:90px" onkeydown="if(event.key==='Enter'){event.preventDefault();addLoc()}" onblur="setTimeout(addLoc,150)">
             <button class="btn sm sec" onclick="addLoc()">Add</button></div>
         </div>
       </div>
@@ -1784,7 +1805,7 @@ function detPanelHtml(){
             <input id="scr-ve" placeholder="–v" style="width:52px" onkeydown="if(event.key==='Enter'){event.preventDefault();addScriptureRef()}">
             <button class="btn sm sec" onclick="addScriptureRef()">Add</button></div>
           <div class="row" style="margin-top:5px">
-            <input id="scr-text" placeholder="or type e.g. John 3:16-21" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addScriptureRefFromText()}">
+            <input id="scr-text" placeholder="or type e.g. John 3:16-21" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addScriptureRefFromText()}" onblur="setTimeout(commitScrOnBlur,150)">
             <button class="btn sm sec" onclick="addScriptureRefFromText()">Add</button></div>
         </div>
       </div>
@@ -1793,7 +1814,7 @@ function detPanelHtml(){
         <div class="vals" id="cur-tags">${CUR.tags.map(tagChip).join('')||'<span class="small muted">none</span>'}</div>
         <div class="edit" id="ed-tags">
           <div class="vals" id="pin-tags">${(DB.settings.pinned_tags||[]).map(pinChip).join('')}</div>
-          <input id="tag-in" placeholder="add tag… (Enter)" style="width:100%;margin-top:6px" autocomplete="off">
+          <input id="tag-in" placeholder="add tag… (Enter)" style="width:100%;margin-top:6px" autocomplete="off" onblur="setTimeout(addTagFromInput,150)">
         </div>
       </div>
     </div>
@@ -2181,7 +2202,7 @@ function renderSettings(){
   </div>
   <div class="card set-section">
     <h3>Account</h3>
-    <p class="small muted">${esc((USER&&USER.email)||'')} · Notes on Books v2.3</p>
+    <p class="small muted">${esc((USER&&USER.email)||'')} · Notes on Books v2.4</p>
     <button class="btn sec" onclick="sb.auth.signOut().then(()=>location.reload())">Sign out</button>
   </div>`;
   const pinIn=$('pin-in');if(pinIn)makeAutocomplete(pinIn,allTags,{onEnter:v=>{pinIn.value=v;pin(v)}});
