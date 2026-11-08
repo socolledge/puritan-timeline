@@ -67,12 +67,19 @@
     width: 0; transition: width .15s; background: var(--panel);
     border-left: 1px solid var(--line); overflow-y: auto; overflow-x: hidden;
   }
-  #detail.open { width: 320px; }
-  #detail .inner { padding: 16px; width: 320px; }
+  #detail.open { width: 380px; }
+  #detail .inner { padding: 16px; width: 380px; }
   #detail h3 { font-size: 16px; line-height: 1.3; margin-bottom: 6px; }
   #detail .date { color: var(--accent); font-weight: 600; margin-bottom: 4px; }
   #detail .dar { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
   #detail .desc { margin: 10px 0; }
+  .xcerpt { margin: 8px 0 12px; font-size: 13px; line-height: 1.5; }
+  .xcerpt blockquote { margin: 0; padding: 2px 0 2px 10px;
+    border-left: 3px solid var(--line); font-family: Georgia, "Times New Roman", serif; }
+  .xcerpt.ai { background: var(--bg); border: 1px dashed var(--line);
+    border-radius: 6px; padding: 6px 9px; }
+  .xcerpt .ailabel { font-weight: 650; }
+  .xcerpt .xcite { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
   .badges { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
   .badge { font-size: 11.5px; padding: 2px 8px; border-radius: 20px;
            background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
@@ -778,12 +785,31 @@ function showDetail(ev) {
     ${ev.dar ? `<div class="dar">as recorded: ${esc(ev.dar)}</div>` : ""}
     <div class="badges">${badges}${confBadge}</div>
     ${ev.d ? `<div class="desc">${esc(ev.d)}</div>` : ""}
+    ${(ev.x || []).length ? `<h4>From the sources</h4>${excerptsHTML(ev)}` : ""}
     ${people ? `<h4>People</h4><ul>${people}</ul>` : ""}
     ${works ? `<h4>Works</h4><ul>${works}</ul>` : ""}
     ${tags ? `<h4>Tags</h4><div class="badges">${tags}</div>` : ""}
     <h4>Sources</h4><ul>${sources || "<li style='color:#b45309'>unsourced</li>"}</ul>`;
   detail.classList.add("open");
   setTimeout(resize, 170);
+}
+// Source excerpts: verbatim quotes, plus clearly labelled AI summaries.
+function xcite(x) {
+  const bits = [esc(x.ref)];
+  if (x.article) {  // "Headword, by Author" -> s.v. 'Headword' (Author)
+    const [hw, au] = x.article.split(/, by /);
+    bits.push(`s.v. ‘${esc(hw)}’` + (au ? ` (${esc(au)})` : ""));
+  }
+  if (x.loc) bits.push(esc(x.loc));
+  const link = x.url ? ` · <a href="${esc(x.url)}" target="_blank" rel="noopener">page scan ↗</a>` : "";
+  return bits.join(", ") + link;
+}
+function excerptsHTML(ev) {
+  return (ev.x || []).map(x => x.kind === "ai_summary"
+    ? `<div class="xcerpt ai"><span class="ailabel">AI Summary.</span> ${esc(x.body)}
+         <div class="xcite">summarizing ${xcite(x)}</div></div>`
+    : `<div class="xcerpt"><blockquote>${esc(x.body).replace(/\n\n/g, "<br><br>")}</blockquote>
+         <div class="xcite">— ${xcite(x)}</div></div>`).join("");
 }
 function closeDetail() { selected = null; detail.classList.remove("open");
   setTimeout(resize, 170); render(); }
@@ -1544,6 +1570,13 @@ function normalizeImport(doc) {
     delete o.s; delete o.e;
     return o;
   });
+  out.excerpts = (doc.excerpts || []).map(x => {
+    if (x.se) return x;
+    const st = parseDateStr(x.s || "");
+    if (!st) throw new Error(`Could not parse date '${x.s}' for excerpt on “${x.t}”`);
+    const o = Object.assign({}, x, { se: st.se }); delete o.s;
+    return o;
+  });
   return out;
 }
 async function runImport() {
@@ -1556,14 +1589,14 @@ async function runImport() {
   catch (e) { write("Not valid JSON: " + e.message); return; }
   try { norm = normalizeImport(doc); }
   catch (e) { write(e.message); return; }
-  const events = norm.events || [];
-  write(`Parsed ${events.length} events. Importing…`);
+  const events = norm.events || [], excerpts = norm.excerpts || [];
+  write(`Parsed ${events.length} events, ${excerpts.length} excerpts. Importing…`);
   const CHUNK = 60;
-  let added = 0, skipped = 0;
+  let added = 0, skipped = 0, xsaved = 0, unmatched = [];
   try {
     // first call carries reference data (lanes, sources, persons, works, …)
     let r = await sb.rpc("import_data",
-      { p: Object.assign({}, norm, { events: events.slice(0, CHUNK) }) });
+      { p: Object.assign({}, norm, { events: events.slice(0, CHUNK), excerpts: [] }) });
     if (r.error) throw r.error;
     added += r.data.events_added; skipped += r.data.events_skipped;
     for (let i = CHUNK; i < events.length; i += CHUNK) {
@@ -1573,8 +1606,17 @@ async function runImport() {
       added += r.data.events_added; skipped += r.data.events_skipped;
       write(`  … ${Math.min(i + CHUNK, events.length)} / ${events.length}`);
     }
+    // excerpts attach to existing events, so they go after all events
+    for (let i = 0; i < excerpts.length; i += CHUNK) {
+      r = await sb.rpc("import_data", { p: { excerpts: excerpts.slice(i, i + CHUNK) } });
+      if (r.error) throw r.error;
+      xsaved += r.data.excerpts_saved || 0;
+      unmatched = unmatched.concat(r.data.excerpts_unmatched || []);
+    }
   } catch (e) { write("Import failed: " + (e.message || e)); return; }
   write(`Done — ${added} added, ${skipped} already present.`);
+  if (excerpts.length) write(`Excerpts — ${xsaved} saved.`);
+  if (unmatched.length) write(`No matching event for: ${unmatched.join("; ")}`);
   await refetchAll(null);
 }
 document.getElementById("impRun").addEventListener("click", runImport);
