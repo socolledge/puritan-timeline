@@ -80,6 +80,17 @@
     border-radius: 6px; padding: 6px 9px; }
   .xcerpt .ailabel { font-weight: 650; }
   .xcerpt .xcite { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  details.work { border-bottom: 1px solid var(--line); padding: 4px 0; }
+  details.work > summary { cursor: pointer; list-style: none; line-height: 1.35; }
+  details.work > summary::-webkit-details-marker { display: none; }
+  details.work > summary::before { content: "\25B8"; color: var(--muted);
+    display: inline-block; width: 12px; transition: transform .1s; }
+  details.work[open] > summary::before { transform: rotate(90deg); }
+  details.work .wyear { color: var(--accent); font-weight: 600; margin-right: 4px; }
+  details.work .wgenre { color: var(--muted); font-size: 11.5px; }
+  details.work .wbody { margin: 6px 0 6px 12px; font-size: 13px; }
+  details.work .wlbl { font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--muted); }
   .badges { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
   .badge { font-size: 11.5px; padding: 2px 8px; border-radius: 20px;
            background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
@@ -768,8 +779,16 @@ function showDetail(ev) {
   const people = ev.people.map(p =>
     `<li><span class="personLink" onclick="setFocus(${p.id})">${esc(p.n)}</span>
      <span style="color:var(--muted)"> — ${esc(p.role)}</span></li>`).join("");
-  const works = ev.works.map(w =>
-    `<li>${esc(w.title)} <span style="color:var(--muted)">— ${esc(w.role)}</span></li>`).join("");
+  const works = ev.works.map(w => { const full = workByTitle(w.title);
+    return full ? workHTML(full)
+      : `<div class="work" style="padding:4px 0 4px 12px">${esc(w.title)} <span style="color:var(--muted)">— ${esc(w.role)}</span></div>`;
+  }).join("");
+  // On a person's Lives entry, list everything they wrote
+  const authored = ev.lane === livesLaneId
+    ? ev.people.filter(p => p.role === "subject").map(p => {
+        const ws = worksBy(p.id);
+        return ws.length ? `<h4>Works by ${esc(p.n)} (${ws.length})</h4>${ws.map(workHTML).join("")}` : "";
+      }).join("") : "";
   const tags = ev.tags.map(t => `<span class="badge">${esc(t)}</span>`).join(" ");
   const sources = ev.sources.map(s =>
     `<li>${s.url ? `<a href="${s.url}" target="_blank">${esc(s.ref)}</a>` : esc(s.ref)}` +
@@ -787,13 +806,47 @@ function showDetail(ev) {
     ${ev.d ? `<div class="desc">${esc(ev.d)}</div>` : ""}
     ${(ev.x || []).length ? `<h4>From the sources</h4>${excerptsHTML(ev)}` : ""}
     ${people ? `<h4>People</h4><ul>${people}</ul>` : ""}
-    ${works ? `<h4>Works</h4><ul>${works}</ul>` : ""}
+    ${works ? `<h4>Works</h4>${works}` : ""}
+    ${authored}
     ${tags ? `<h4>Tags</h4><div class="badges">${tags}</div>` : ""}
     <h4>Sources</h4><ul>${sources || "<li style='color:#b45309'>unsourced</li>"}</ul>`;
   detail.classList.add("open");
   setTimeout(resize, 170);
 }
 // Source excerpts: verbatim quotes, plus clearly labelled AI summaries.
+function linkLabel(url) {
+  if (/wikisource\.org/.test(url)) return "Wikisource";
+  if (/gutenberg\.org/.test(url)) return "Project Gutenberg";
+  if (/archive\.org/.test(url)) return "page scan";
+  if (/quod\.lib\.umich\.edu/.test(url)) return "EEBO-TCP";
+  return "link";
+}
+// Works: title page (verbatim), labelled AI summary, link to a free text.
+function workByTitle(t) { return (DATA.works || []).find(w => w.title === t); }
+function worksBy(pid) {
+  return (DATA.works || []).filter(w => (w.authors || []).includes(pid))
+    .sort((a, b) => (a.year || 9999) - (b.year || 9999) || a.title.localeCompare(b.title));
+}
+function workHTML(w) {
+  const body = [];
+  if (w.full_title) body.push(`<div class="wlbl">Title page</div>
+    <div class="xcerpt"><blockquote>${esc(w.full_title)}</blockquote></div>`);
+  if (w.summary) body.push(w.summary_kind === "quote"
+    ? `<div class="xcerpt"><blockquote>${esc(w.summary)}</blockquote>
+         ${w.summary_basis ? `<div class="xcite">— ${esc(w.summary_basis)}</div>` : ""}</div>`
+    : `<div class="xcerpt ai"><span class="ailabel">AI Summary.</span> ${esc(w.summary)}
+         ${w.summary_basis ? `<div class="xcite">based on ${esc(w.summary_basis)}</div>` : ""}</div>`);
+  const links = [];
+  if (w.text_url) links.push(`<a href="${esc(w.text_url)}" target="_blank" rel="noopener">Read the text ↗</a>`
+    + (w.text_label ? ` <span style="color:var(--muted)">(${esc(w.text_label)})</span>` : ""));
+  if (w.estc_id) links.push(`<span style="color:var(--muted)">${esc(w.estc_id)}</span>`);
+  if (links.length) body.push(`<div>${links.join(" · ")}</div>`);
+  const head = `${w.year ? `<span class="wyear">${w.year}</span>` : ""}${esc(w.title)}`
+    + (w.genre ? ` <span class="wgenre">— ${esc(w.genre)}</span>` : "");
+  return body.length
+    ? `<details class="work"><summary>${head}</summary><div class="wbody">${body.join("")}</div></details>`
+    : `<div class="work" style="padding:4px 0 4px 12px">${head}</div>`;
+}
 function xcite(x) {
   const bits = [esc(x.ref)];
   if (x.article) {  // "Headword, by Author" -> s.v. 'Headword' (Author)
@@ -801,7 +854,7 @@ function xcite(x) {
     bits.push(`s.v. ‘${esc(hw)}’` + (au ? ` (${esc(au)})` : ""));
   }
   if (x.loc) bits.push(esc(x.loc));
-  const link = x.url ? ` · <a href="${esc(x.url)}" target="_blank" rel="noopener">page scan ↗</a>` : "";
+  const link = x.url ? ` · <a href="${esc(x.url)}" target="_blank" rel="noopener">${linkLabel(x.url)} ↗</a>` : "";
   return bits.join(", ") + link;
 }
 function excerptsHTML(ev) {
