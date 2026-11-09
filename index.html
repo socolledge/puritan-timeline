@@ -270,6 +270,18 @@
     <button id="pAll" style="padding:2px 8px; font-size:12px">All</button>
     <button id="pNone" style="padding:2px 8px; font-size:12px">None</button>
   </div>
+  <select id="grpSel" style="width:100%; margin-bottom:4px"
+          title="People groups"><option value="">— groups —</option></select>
+  <div style="display:flex; gap:4px; margin-bottom:6px; flex-wrap:wrap">
+    <button id="gOnly" style="padding:2px 7px; font-size:12px"
+            title="Show only this group's people">Only</button>
+    <button id="gAdd" style="padding:2px 7px; font-size:12px"
+            title="Also show this group's people">+ Add</button>
+    <button id="gHide" style="padding:2px 7px; font-size:12px"
+            title="Hide this group's people">− Hide</button>
+    <button id="gManage" style="padding:2px 7px; font-size:12px; margin-left:auto"
+            title="Create, edit or delete groups">Manage…</button>
+  </div>
   <div id="personToggles" style="max-height:240px; overflow-y:auto"></div>
 </aside>
 
@@ -324,6 +336,35 @@
     <button type="button" class="linkBtn" id="gateOffline">
       Open offline with cached data</button>
   </form>
+</div>
+
+<div class="modal" id="groupModal">
+  <div class="modalCard" style="width:min(560px, 94vw)">
+    <h3>People groups</h3>
+    <p>Groups filter the Lives lane. "By monarch" groups are calculated from
+       lifespans (adult life, from age 20, overlapping the reign) and can't be edited.</p>
+    <div style="display:flex; gap:6px; margin-bottom:8px">
+      <select id="gmSel" style="flex:1"></select>
+      <button id="gmNew">New</button>
+    </div>
+    <div style="display:grid; grid-template-columns:90px 1fr; gap:6px; align-items:center">
+      <label>Name</label><input id="gmName">
+      <label>Category</label><input id="gmCat" list="gmCats"
+        placeholder="e.g. Nation / region"><datalist id="gmCats"></datalist>
+      <label>Description</label><input id="gmDesc">
+    </div>
+    <div style="display:flex; gap:6px; margin:10px 0 4px; align-items:center">
+      <b style="font-size:12.5px">Members</b>
+      <span class="muted" id="gmCount" style="font-size:12px"></span>
+    </div>
+    <div id="gmPeople" style="max-height:260px; overflow-y:auto; columns:2;
+         font-size:12.5px; border:1px solid var(--line, #e5e0d6); border-radius:6px; padding:6px"></div>
+    <div class="btns">
+      <button class="primary" id="gmSave">Save group</button>
+      <button id="gmDel">Delete group</button>
+      <button id="gmClose" style="margin-left:auto">Close</button>
+    </div>
+  </div>
 </div>
 
 <div class="modal" id="importModal">
@@ -1333,6 +1374,93 @@ function printReport() {
   setTimeout(() => window.print(), 60);
 }
 
+// ---------- people groups ----------
+let LIVES_SUBJECTS = new Set();
+const REIGNS = [
+  ["Mary I", 1553, 1558], ["Elizabeth I", 1558, 1603], ["James I", 1603, 1625],
+  ["Charles I", 1625, 1649], ["Interregnum", 1649, 1660], ["Charles II", 1660, 1685],
+  ["James II", 1685, 1688], ["William & Mary", 1689, 1702], ["Anne", 1702, 1714]];
+// birth/death years from each person's Lives entry
+function lifespans() {
+  const m = {};
+  for (const e of EVENTS) if (e.lane === livesLaneId)
+    for (const p of e.people) if (p.role === "subject")
+      m[p.id] = [isoY(e.se), isoY(e.el)];
+  return m;
+}
+function monarchGroups() {
+  const ls = lifespans();
+  return REIGNS.map(([name, a, b]) => ({
+    id: "reign:" + name, name, category: "By monarch (adult life)", computed: true,
+    description: `${a}–${b}`,
+    members: Object.entries(ls).filter(([, [born, died]]) => born + 20 <= b && died >= a)
+      .map(([id]) => id) }));
+}
+function allGroups() {
+  return [...(DATA.groups || []), ...monarchGroups()];
+}
+function personName(id) { return (DATA.persons.find(p => p.id === id) || {}).n || "?"; }
+
+let gmCurrent = null;   // group being edited (null = new)
+function openGroups(id) {
+  if (offlineGuard()) return;
+  const stored = DATA.groups || [];
+  const sel = document.getElementById("gmSel");
+  sel.innerHTML = `<option value="">— new group —</option>` + stored.map(g =>
+    `<option value="${g.id}">${esc(g.category ? g.category + " · " : "")}${esc(g.name)}</option>`).join("");
+  document.getElementById("gmCats").innerHTML = [...new Set(stored.map(g => g.category).filter(Boolean))]
+    .map(c => `<option value="${esc(c)}">`).join("");
+  sel.value = stored.some(g => g.id === id) ? id : "";
+  loadGroupForm(sel.value);
+  document.getElementById("groupModal").classList.add("show");
+}
+function loadGroupForm(id) {
+  gmCurrent = (DATA.groups || []).find(g => g.id === id) || null;
+  document.getElementById("gmName").value = gmCurrent ? gmCurrent.name : "";
+  document.getElementById("gmCat").value = gmCurrent ? (gmCurrent.category || "") : "";
+  document.getElementById("gmDesc").value = gmCurrent ? (gmCurrent.description || "") : "";
+  const mem = new Set(gmCurrent ? gmCurrent.members : []);
+  const people = DATA.persons.filter(p => LIVES_SUBJECTS.has(p.id));
+  const box = document.getElementById("gmPeople");
+  box.innerHTML = people.map(p => `<label style="display:block; break-inside:avoid">
+    <input type="checkbox" data-pid="${p.id}" ${mem.has(p.id) ? "checked" : ""}> ${esc(p.n)}</label>`).join("");
+  const count = () => document.getElementById("gmCount").textContent =
+    `${box.querySelectorAll("input:checked").length} selected`;
+  box.querySelectorAll("input").forEach(i => i.addEventListener("change", count));
+  count();
+  document.getElementById("gmDel").disabled = !gmCurrent;
+}
+async function saveGroup() {
+  const name = document.getElementById("gmName").value.trim();
+  if (!name) { alert("Give the group a name."); return; }
+  const members = [...document.querySelectorAll("#gmPeople input:checked")].map(i => i.dataset.pid);
+  const p = { id: gmCurrent ? gmCurrent.id : null, name,
+              category: document.getElementById("gmCat").value.trim(),
+              description: document.getElementById("gmDesc").value.trim(), members };
+  const { data, error } = await sb.rpc("save_person_group", { p });
+  if (error) { alert(error.message); return; }
+  await refetchAll(null);
+  openGroups(data);
+  document.getElementById("grpSel").value = data;
+}
+async function deleteGroup() {
+  if (!gmCurrent) return;
+  if (!confirm(`Delete the group “${gmCurrent.name}”? The people themselves are not affected.`)) return;
+  const { error } = await sb.rpc("delete_person_group", { p_id: gmCurrent.id });
+  if (error) { alert(error.message); return; }
+  await refetchAll(null);
+  openGroups(null);
+}
+document.getElementById("gManage").onclick = () =>
+  openGroups(document.getElementById("grpSel").value);
+document.getElementById("gmSel").onchange = e => loadGroupForm(e.target.value);
+document.getElementById("gmNew").onclick = () => {
+  document.getElementById("gmSel").value = ""; loadGroupForm(""); };
+document.getElementById("gmSave").onclick = saveGroup;
+document.getElementById("gmDel").onclick = deleteGroup;
+document.getElementById("gmClose").onclick = () =>
+  document.getElementById("groupModal").classList.remove("show");
+
 // ---------- saved views ----------
 async function saveView() {
   if (offlineGuard()) return;
@@ -1435,6 +1563,32 @@ function applyData(data) {
   };
   document.getElementById("pAll").onclick = () => setAllPersons(true);
   document.getElementById("pNone").onclick = () => setAllPersons(false);
+
+  // people groups: stored groups plus "By monarch" groups computed from lifespans
+  LIVES_SUBJECTS = subjects;
+  const gs = document.getElementById("grpSel");
+  const keepGrp = gs.value;
+  const groups = allGroups();
+  const byCat = {};
+  for (const g of groups) (byCat[g.category || "Other"] = byCat[g.category || "Other"] || []).push(g);
+  gs.innerHTML = `<option value="">— groups —</option>` +
+    Object.entries(byCat).map(([cat, gg]) => `<optgroup label="${esc(cat)}">` +
+      gg.map(g => `<option value="${g.id}">${esc(g.name)} (${g.members.length})</option>`).join("")
+      + `</optgroup>`).join("");
+  gs.value = groups.some(g => g.id === keepGrp) ? keepGrp : "";
+  const applyGroup = mode => {
+    const g = groups.find(x => x.id === gs.value);
+    if (!g) return;
+    const mem = new Set(g.members.filter(id => subjects.has(id)));
+    if (mode === "only") hiddenPersons = new Set([...subjects].filter(id => !mem.has(id)));
+    else if (mode === "add") mem.forEach(id => hiddenPersons.delete(id));
+    else mem.forEach(id => hiddenPersons.add(id));
+    pt.querySelectorAll("input").forEach(i => i.checked = !hiddenPersons.has(i.dataset.pid));
+    render(); refreshReport();
+  };
+  document.getElementById("gOnly").onclick = () => applyGroup("only");
+  document.getElementById("gAdd").onclick = () => applyGroup("add");
+  document.getElementById("gHide").onclick = () => applyGroup("hide");
 
   // data-strip key (sidebar shows all series, regardless of lane toggles)
   document.getElementById("stripKey").innerHTML =
