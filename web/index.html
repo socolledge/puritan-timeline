@@ -1,0 +1,1712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Puritan Era Timeline</title>
+<link rel="icon" href="data:,">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #faf8f4; --panel: #ffffff; --ink: #2b2620; --muted: #8a8071;
+    --line: #e6e0d4; --accent: #6d28d9;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--ink); background: var(--bg);
+    display: grid; grid-template-rows: 52px 1fr;
+    grid-template-columns: 218px 1fr auto auto; height: 100vh; overflow: hidden;
+  }
+  header {
+    grid-column: 1 / 5; display: flex; align-items: center; gap: 12px;
+    padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 15px; font-weight: 650; white-space: nowrap; }
+  header .spacer { flex: 1; }
+  input, select, button {
+    font: inherit; color: inherit; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  #search { width: 240px; }
+  #searchResults {
+    position: absolute; top: 46px; z-index: 30; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; max-height: 320px;
+    overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.12); display: none;
+    min-width: 320px;
+  }
+  #searchResults div { padding: 7px 12px; cursor: pointer; }
+  #searchResults div:hover { background: var(--bg); }
+  #searchResults .yr { color: var(--muted); font-size: 12px; margin-right: 6px; }
+  aside {
+    background: var(--panel); border-right: 1px solid var(--line);
+    padding: 12px; overflow-y: auto;
+  }
+  aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+             color: var(--muted); margin: 14px 0 6px; }
+  aside h2:first-child { margin-top: 0; }
+  .laneRow { display: flex; align-items: center; gap: 8px; padding: 3px 0;
+             cursor: pointer; user-select: none; }
+  .laneRow input { margin: 0; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  aside select, aside label.small { width: 100%; margin-bottom: 6px; display: block; }
+  label.small { font-size: 13px; display: flex; gap: 7px; align-items: center; }
+  #main { position: relative; overflow: hidden; }
+  #cv { display: block; cursor: grab; }
+  #cv.dragging { cursor: grabbing; }
+  #tooltip {
+    position: absolute; pointer-events: none; background: #2b2620; color: #faf8f4;
+    padding: 5px 9px; border-radius: 6px; font-size: 12.5px; max-width: 320px;
+    display: none; z-index: 20;
+  }
+  #detail {
+    width: 0; transition: width .15s; background: var(--panel);
+    border-left: 1px solid var(--line); overflow-y: auto; overflow-x: hidden;
+  }
+  #detail.open { width: 380px; }
+  #detail .inner { padding: 16px; width: 380px; }
+  #detail h3 { font-size: 16px; line-height: 1.3; margin-bottom: 6px; }
+  #detail .date { color: var(--accent); font-weight: 600; margin-bottom: 4px; }
+  #detail .dar { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
+  #detail .desc { margin: 10px 0; }
+  .xcerpt { margin: 8px 0 12px; font-size: 13px; line-height: 1.5; }
+  .xcerpt blockquote { margin: 0; padding: 2px 0 2px 10px;
+    border-left: 3px solid var(--line); font-family: Georgia, "Times New Roman", serif; }
+  .xcerpt.ai { background: var(--bg); border: 1px dashed var(--line);
+    border-radius: 6px; padding: 6px 9px; }
+  .xcerpt .ailabel { font-weight: 650; }
+  .xcerpt .xcite { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  details.work { border-bottom: 1px solid var(--line); padding: 4px 0; }
+  details.work > summary { cursor: pointer; list-style: none; line-height: 1.35; }
+  details.work > summary::-webkit-details-marker { display: none; }
+  details.work > summary::before { content: "\25B8"; color: var(--muted);
+    display: inline-block; width: 12px; transition: transform .1s; }
+  details.work[open] > summary::before { transform: rotate(90deg); }
+  details.work .wyear { color: var(--accent); font-weight: 600; margin-right: 4px; }
+  details.work .wgenre { color: var(--muted); font-size: 11.5px; }
+  details.work .wbody { margin: 6px 0 6px 12px; font-size: 13px; }
+  details.work .wlbl { font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--muted); }
+  .badges { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+  .badge { font-size: 11.5px; padding: 2px 8px; border-radius: 20px;
+           background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
+  .badge.warn { border-color: #d97706; color: #b45309; }
+  #detail h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+               color: var(--muted); margin: 14px 0 4px; }
+  #detail ul { list-style: none; }
+  #detail li { padding: 2px 0; }
+  #detail .close { float: right; border: none; background: none; font-size: 18px;
+                   color: var(--muted); }
+  .personLink { color: var(--accent); cursor: pointer; }
+  #hint { position: absolute; bottom: 10px; left: 14px; color: var(--muted);
+          font-size: 12px; pointer-events: none; }
+  .fform label { display: block; font-size: 11px; text-transform: uppercase;
+                 letter-spacing: .05em; color: var(--muted); margin: 10px 0 3px; }
+  .fform input, .fform textarea, .fform select { width: 100%; }
+  .fform textarea { min-height: 54px; resize: vertical; font-size: 13px; }
+  .fform .row { display: flex; gap: 8px; }
+  .fform .row > div { flex: 1; }
+  .fform .btns { display: flex; gap: 8px; margin-top: 14px; }
+  .fform .btns .primary { background: var(--accent); color: #fff;
+                          border-color: var(--accent); }
+  .fform .btns .danger { color: #b91c1c; margin-left: auto; }
+  .parsePrev { font-size: 11.5px; color: var(--accent); min-height: 14px; }
+  .parsePrev.err { color: #b91c1c; }
+
+  /* ---- report panel ---- */
+  #report {
+    width: 0; transition: width .15s; background: var(--panel);
+    border-left: 1px solid var(--line); overflow-y: auto; overflow-x: hidden;
+  }
+  #report.open { width: 560px; }
+  #report .inner { width: 560px; }
+  #rHead {
+    position: sticky; top: 0; background: var(--panel); z-index: 5;
+    border-bottom: 1px solid var(--line); padding: 12px 16px 10px;
+  }
+  #rHead .line { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+  #rHead .line:last-child { margin-bottom: 0; }
+  #rHead h3 { font-size: 15px; flex: 1; }
+  #rHead input[type=number] { width: 66px; }
+  #rHead .muted { color: var(--muted); font-size: 12.5px; }
+  #reportBody { padding: 4px 16px 40px; }
+  .rlane { margin-top: 16px; }
+  .rlane h4 {
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em;
+    border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-bottom: 8px;
+  }
+  .rlane h4 span { color: var(--muted); font-weight: 400; }
+  .evt { margin: 0 0 11px; break-inside: avoid; page-break-inside: avoid; }
+  .etitle { font-weight: 600; }
+  .edot { display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+          margin-right: 6px; vertical-align: 1px; }
+  .edate { color: var(--accent); font-weight: 600; margin-left: 6px; }
+  .ecarry { color: var(--muted); font-size: 11.5px; font-weight: 400;
+            border: 1px solid var(--line); border-radius: 20px; padding: 1px 7px;
+            margin-left: 6px; }
+  .emeta { color: var(--muted); font-size: 11.5px; }
+  .edesc { margin: 3px 0; }
+  .elinks { font-size: 12.5px; color: #5c5446; }
+
+  /* ---- data-strip key ---- */
+  .key { margin-bottom: 10px; }
+  .key .kname { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .key .kbar { height: 10px; border-radius: 3px; border: 1px solid var(--line); }
+  .key .kscale { display: flex; justify-content: space-between;
+                 font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+  .key .kcats { display: flex; flex-wrap: wrap; gap: 4px 9px; }
+  .key .kcat { font-size: 10.5px; color: var(--muted);
+               display: flex; align-items: center; gap: 4px; }
+  .kswatch { width: 13px; height: 10px; border-radius: 2px;
+             border: 1px solid rgba(0,0,0,.12); display: inline-block; }
+  #reportBody .key { margin: 14px 0 4px; }
+
+  /* ---- report sources ---- */
+  .srcitem { margin-bottom: 7px; font-size: 12.5px; break-inside: avoid; }
+  .srcitem .cited { color: var(--muted); }
+  .srcitem em { color: #7a7263; }
+  .srcnote { font-size: 12.5px; color: var(--muted); margin: 6px 0 10px; }
+
+  /* ---- sign-in gate, modals, network state ---- */
+  #gate {
+    position: fixed; inset: 0; z-index: 100; background: var(--bg);
+    display: none; align-items: center; justify-content: center;
+  }
+  #gate.show { display: flex; }
+  #gate form {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 26px 28px; width: 330px; box-shadow: 0 10px 40px rgba(0,0,0,.09);
+  }
+  #gate h2 { font-size: 17px; margin-bottom: 4px; }
+  #gate p { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  #gate input { width: 100%; margin-bottom: 8px; }
+  #gate button[type=submit] { width: 100%; background: var(--accent); color: #fff;
+    border-color: var(--accent); margin-top: 4px; }
+  #gateMsg { font-size: 12.5px; color: #b91c1c; min-height: 16px; margin-top: 8px; }
+  .linkBtn { background: none; border: none; color: var(--muted);
+             font-size: 12.5px; text-decoration: underline; cursor: pointer;
+             padding: 4px 0; }
+  #netState { font-size: 12px; color: #b45309; }
+  .modal { position: fixed; inset: 0; z-index: 90; display: none;
+           align-items: center; justify-content: center;
+           background: rgba(43,38,32,.35); }
+  .modal.show { display: flex; }
+  .modalCard { background: var(--panel); border-radius: 12px; padding: 20px 22px;
+               width: 560px; max-height: 80vh; overflow-y: auto;
+               box-shadow: 0 12px 48px rgba(0,0,0,.2); }
+  .modalCard h3 { font-size: 16px; margin-bottom: 4px; }
+  .modalCard p { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+  .modalCard textarea { width: 100%; min-height: 130px; font: 12px ui-monospace,
+    SFMono-Regular, Menlo, monospace; margin-top: 8px; }
+  .modalCard .btns { display: flex; gap: 8px; margin-top: 12px; }
+  .modalCard .btns .primary { background: var(--accent); color: #fff;
+                              border-color: var(--accent); }
+  #impLog { font: 12px ui-monospace, Menlo, monospace; white-space: pre-wrap;
+            color: var(--muted); margin-top: 12px; max-height: 220px;
+            overflow-y: auto; }
+
+  /* ---- print / PDF ---- */
+  #printArea { display: none; }
+  @media print {
+    @page { size: landscape; margin: 12mm; }
+    /* browsers drop background colours when printing unless told otherwise */
+    *, *::before, *::after {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body { display: block; height: auto; overflow: visible; background: #fff; }
+    body > *:not(#printArea) { display: none !important; }
+    #printArea { display: block; }
+    #printArea h1 { font-size: 17px; margin-bottom: 10px; }
+    /* keep the timeline picture on the first page, aspect ratio intact */
+    #printArea img { width: auto; max-width: 100%; max-height: 11cm;
+                     margin-bottom: 14px; border: 1px solid var(--line); }
+    #printArea .rlane h4 { break-after: avoid; page-break-after: avoid; }
+    .elinks, .emeta { color: #555; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Puritan Era Timeline <span style="color:var(--muted);font-weight:400">1550–1714</span></h1>
+  <div style="position:relative">
+    <input id="search" type="search" placeholder="Search events…" autocomplete="off">
+    <div id="searchResults"></div>
+  </div>
+  <span id="netState"></span>
+  <div class="spacer"></div>
+  <select id="personSel" title="Focus on a person"></select>
+  <button id="addBtn" title="Add a new event">+ Add event</button>
+  <button id="reportBtn" title="Report for a date range">Report</button>
+  <button id="importBtn" title="Bulk import JSON">Import</button>
+  <button id="exportBtn" title="Download a full snapshot (backup)">Export</button>
+  <button id="resetBtn" title="Reset zoom and filters">Reset view</button>
+  <button id="signOutBtn" title="Sign out">⏻</button>
+</header>
+
+<aside>
+  <h2>Lanes</h2>
+  <div id="laneToggles"></div>
+  <h2>Detail level</h2>
+  <select id="weightSel">
+    <option value="auto" selected>Auto (by zoom)</option>
+    <option value="3">Major events only</option>
+    <option value="2">Major + normal</option>
+    <option value="1">Everything</option>
+  </select>
+  <h2>Tag filter</h2>
+  <select id="tagSel"><option value="">— all tags —</option></select>
+  <h2>Confidence</h2>
+  <label class="small"><input type="checkbox" id="hideDisputed">
+    Hide disputed / traditional</label>
+  <h2>Data strip key</h2>
+  <div id="stripKey"></div>
+  <h2>Lives — people</h2>
+  <div style="display:flex; gap:6px; margin-bottom:5px">
+    <button id="pAll" style="padding:2px 8px; font-size:12px">All</button>
+    <button id="pNone" style="padding:2px 8px; font-size:12px">None</button>
+  </div>
+  <div id="personToggles" style="max-height:240px; overflow-y:auto"></div>
+</aside>
+
+<div id="main">
+  <canvas id="cv"></canvas>
+  <div id="tooltip"></div>
+  <div id="hint">scroll up/down · drag to pan · pinch or ⌘-scroll to zoom · click an event for detail</div>
+</div>
+
+<div id="detail"><div class="inner" id="detailInner"></div></div>
+
+<div id="report"><div class="inner">
+  <div id="rHead">
+    <div class="line">
+      <h3>Report</h3>
+      <button onclick="printReport()" title="Print / save as landscape PDF">⎙ PDF</button>
+      <button class="close" onclick="closeReport()" style="float:none">×</button>
+    </div>
+    <div class="line">
+      <span class="muted">Years</span>
+      <input type="number" id="rFrom" step="1"> <span class="muted">–</span>
+      <input type="number" id="rTo" step="1">
+      <span class="muted">organized</span>
+      <select id="rGroup">
+        <option value="band">by band</option>
+        <option value="date">by date</option>
+      </select>
+      <label class="muted" style="display:flex; align-items:center; gap:4px">
+        <input type="checkbox" id="rSources" checked> Sources</label>
+    </div>
+    <div class="line">
+      <select id="viewSel" style="flex:1"><option value="">— saved views —</option></select>
+      <button id="viewSave" title="Save current configuration">Save…</button>
+      <button id="viewDel" title="Delete selected saved view">✕</button>
+    </div>
+    <div class="line muted" id="rCount"></div>
+  </div>
+  <div id="reportBody"></div>
+</div></div>
+
+<div id="printArea"></div>
+
+<div id="gate">
+  <form id="gateForm">
+    <h2>Puritan Era Timeline</h2>
+    <p>1550–1714 · sign in to load your data</p>
+    <input type="email" id="gateEmail" placeholder="email" autocomplete="username">
+    <input type="password" id="gatePass" placeholder="password"
+           autocomplete="current-password">
+    <button type="submit">Sign in</button>
+    <div id="gateMsg"></div>
+    <button type="button" class="linkBtn" id="gateOffline">
+      Open offline with cached data</button>
+  </form>
+</div>
+
+<div class="modal" id="importModal">
+  <div class="modalCard">
+    <h3>Import data</h3>
+    <p>A curated batch (the JSON files Claude produces) or a full snapshot.
+       Existing events — same title, start date and lane — are skipped, so
+       re-importing a file is harmless.</p>
+    <input type="file" id="impFile" accept=".json,application/json">
+    <textarea id="impText" placeholder='… or paste JSON here'></textarea>
+    <div class="btns">
+      <button class="primary" id="impRun">Import</button>
+      <button onclick="closeImport()">Close</button>
+    </div>
+    <div id="impLog"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+// Harvest-quality palette (worst → best); shared by the canvas strip and the key.
+const CAT_COLORS = { dearth: "#7f1d1d", bad: "#dc2626", deficient: "#f59e0b",
+                     average: "#d8d0bc", good: "#84cc16", abundant: "#15803d" };
+const CAT_ORDER = ["dearth", "bad", "deficient", "average", "good", "abundant"];
+// Numeric-series scale, identical formula to the canvas rendering.
+const heatColor = frac => `hsl(${Math.round(220 - 220 * frac)} 65% 55%)`;
+let DATA = null, LANES = [], EVENTS = [];
+let view = { t0: 1545, t1: 1717 };
+const FULL = { t0: 1545, t1: 1717 };
+let activeLanes = new Set(), weightMode = "auto", hideDisputed = false, tagFilter = "";
+let focusPerson = "", selected = null;
+let hiddenPersons = new Set(), livesLaneId = 0, personalLaneId = 0;
+let hitRects = [];   // {x0,y0,x1,y1,ev}
+const cv = document.getElementById("cv");
+let ctx = cv.getContext("2d");   // reassigned temporarily for print snapshots
+const main = document.getElementById("main");
+// Canvas dimensions: overridden while rendering an off-screen print image.
+let VIEW_W = null, VIEW_H = null;
+const vw = () => VIEW_W ?? cv.clientWidth;
+const vh = () => VIEW_H ?? cv.clientHeight;
+
+// ---------- helpers ----------
+function isoY(iso) {
+  const y = +iso.slice(0,4), m = +iso.slice(5,7) || 1, d = +iso.slice(8,10) || 1;
+  return y + ((m - 1) + (d - 1) / 31) / 12;
+}
+function X(t) { return (t - view.t0) / (view.t1 - view.t0) * vw(); }
+function ppy() { return vw() / (view.t1 - view.t0); }
+function minWeight() {
+  if (weightMode !== "auto") return +weightMode;
+  const p = ppy();
+  return p < 10 ? 3 : p < 55 ? 2 : 1;
+}
+function prettyDate(iso, prec) {
+  const y = iso.slice(0,4).replace(/^0+/, "");
+  if (prec === "day")   return `${+iso.slice(8,10)} ${MONTHS[+iso.slice(5,7)-1]} ${y}`;
+  if (prec === "month") return `${MONTHS[+iso.slice(5,7)-1]} ${y}`;
+  return y;
+}
+function evDateLabel(ev) {
+  let s;
+  if (ev.sp === "circa") s = "c. " + Math.round((isoY(ev.se) + isoY(ev.sl)) / 2);
+  else if (ev.sp === "range") s = `${ev.se.slice(0,4)}–${ev.sl.slice(0,4)}`;
+  else s = prettyDate(ev.se, ev.sp);
+  if (!ev.span) return s;
+  let e;
+  if (ev.ep === "circa") e = "c. " + Math.round((isoY(ev.ee) + isoY(ev.el)) / 2);
+  else e = prettyDate(ev.el, ev.ep === "day" ? "day" : ev.ep === "month" ? "month" : "year");
+  return s + " – " + e;
+}
+function esc(s) { return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+
+// ---------- filtering ----------
+function passesStatic(ev) {
+  if (!activeLanes.has(ev.lane)) return false;
+  if (hideDisputed && (ev.conf === "disputed" || ev.conf === "traditional")) return false;
+  if (tagFilter && !ev.tags.includes(tagFilter)) return false;
+  // Lives-band person toggles hide that person's lifespan bar only.
+  if (hiddenPersons.size && ev.lane === livesLaneId
+      && ev.people.some(p => hiddenPersons.has(p.id))) return false;
+  return true;
+}
+function inView(ev) { return isoY(ev.se) <= view.t1 && isoY(ev.el) >= view.t0; }
+
+// ---------- layout & render ----------
+const ROW_H = 22, LANE_HEAD = 22, LANE_PAD = 6, AXIS_H = 34;
+
+function resize() {
+  const w = main.clientWidth, h = main.clientHeight;
+  cv.width = w * devicePixelRatio; cv.height = h * devicePixelRatio;
+  cv.style.width = w + "px"; cv.style.height = h + "px";
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  render();
+}
+
+let vScroll = 0, contentH = 0;
+function clampScroll(v) {
+  const inner = vh() - AXIS_H;
+  return Math.max(0, Math.min(v, Math.max(0, contentH - inner)));
+}
+function render() {
+  if (!DATA) return;
+  const W = vw(), H = vh();
+  ctx.clearRect(0, 0, W, H);
+  hitRects = [];
+  const step = axisStep();
+  drawGrid(W, H, step);
+
+  const mw = minWeight();
+  let y = AXIS_H - vScroll;
+  // In focus mode, float Personal and Lives to the top so the focused
+  // person is immediately visible.
+  const laneRank = l => focusPerson
+    ? (l.name === "Personal" ? -3 : l.name === "Publications" ? -2
+       : l.name === "Lives" ? -1 : l.sort_order)
+    : l.sort_order;
+  const lanes = [...LANES].sort((a, b) => laneRank(a) - laneRank(b));
+  for (const lane of lanes) {
+    if (!activeLanes.has(lane.id)) continue;
+    // Personal lane is virtual: only visible in person-focus mode, and only
+    // showing the focused person's events.
+    if (lane.name === "Personal" && !focusPerson) continue;
+    // Layout over ALL matching events, not just those in view: lane heights
+    // then stay constant while panning, so nothing jumps vertically.
+    let evs = EVENTS.filter(e => e.lane === lane.id && passesStatic(e));
+    if (lane.name === "Personal")
+      evs = evs.filter(e => e.people.some(p => p.id === focusPerson));
+    const foc = e => focusPerson && e.people.some(p => p.id === focusPerson) ? 1 : 0;
+    const shown = evs.filter(e => e.w >= mw || foc(e))
+      .sort((a, b) => foc(b) - foc(a) || isoY(a.se) - isoY(b.se));
+    const hidden = evs.filter(e => e.w < mw && !foc(e) && inView(e));
+
+    // greedy row packing
+    ctx.font = "12px -apple-system, sans-serif";
+    const rows = [];
+    for (const ev of shown) {
+      const x0 = X(isoY(ev.se)), x1 = ev.span ? Math.max(X(isoY(ev.el)), x0 + 4) : x0;
+      const label = ev.t;
+      const labelW = ctx.measureText(label).width;
+      const occEnd = ev.span && (x1 - x0) > labelW + 10
+        ? x1 : Math.max(x1, x0 + 8) + labelW + 10;
+      let r = rows.findIndex(end => end + 6 < x0);
+      if (r === -1) { rows.push(occEnd); r = rows.length - 1; }
+      else rows[r] = occEnd;
+      ev._x0 = x0; ev._x1 = x1; ev._row = r; ev._labelW = labelW;
+    }
+    const laneStrips = (DATA.strips || []).filter(s => s.lane === lane.id);
+    const stripsH = laneStrips.length * 12;
+    const laneH = LANE_HEAD + Math.max(rows.length, 1) * ROW_H + LANE_PAD + stripsH;
+
+    // lane background + header
+    ctx.fillStyle = "rgba(0,0,0,0.025)";
+    if (lane.sort_order % 2 === 0) ctx.fillRect(0, y, W, laneH);
+    ctx.fillStyle = lane.color;
+    ctx.fillRect(0, y + 4, 3, laneH - 8);
+    ctx.font = "600 11px -apple-system, sans-serif";
+    ctx.fillStyle = "#8a8071";
+    ctx.fillText(lane.name.toUpperCase(), 10, y + 14);
+
+    // data strips as bands at lane bottom: numeric series get a blue-red
+    // heat scale; categorical series (harvest quality) a fixed palette.
+    laneStrips.forEach((s, si) => {
+      const sy = y + laneH - stripsH + si * 12;
+      for (const [yr, v, lab] of s.values) {
+        const x0 = X(yr), x1 = X(yr + 1);
+        if (x1 < 0 || x0 > W) continue;
+        if (lab && CAT_COLORS[lab]) {
+          ctx.fillStyle = CAT_COLORS[lab];
+          ctx.globalAlpha = 0.8;
+        } else {
+          const frac = (v - s.min) / (s.max - s.min || 1);
+          ctx.fillStyle = `hsl(${Math.round(220 - 220 * frac)} 65% 55% / 0.75)`;
+        }
+        ctx.fillRect(x0, sy, Math.max(x1 - x0, 1), 9);
+        ctx.globalAlpha = 1;
+      }
+      ctx.font = "9px -apple-system, sans-serif";
+      ctx.fillStyle = "#8a8071";
+      const range = s.unit === "category" ? "dearth→abundant" : `${s.min}–${s.max}`;
+      ctx.fillText(`${s.name.split(",")[0]} (${s.unit === "category" ? range : s.unit + ", " + range})`, 10, sy + 8);
+    });
+
+    // hidden-by-LOD density ticks
+    ctx.fillStyle = lane.color + "55";
+    for (const ev of hidden) {
+      const x = X((isoY(ev.se) + isoY(ev.el)) / 2);
+      if (x > -2 && x < W + 2) ctx.fillRect(x, y + laneH - stripsH - 5, 2, 4);
+    }
+
+    // events
+    for (const ev of shown) {
+      const ry = y + LANE_HEAD + ev._row * ROW_H;
+      drawEvent(ev, ry, lane);
+    }
+    y += laneH;
+  }
+  contentH = y + vScroll - AXIS_H;
+  // Re-clamp: if a zoom/filter/focus change shrank the content, never leave
+  // the viewport stranded past the end (blank screen).
+  const clamped = clampScroll(vScroll);
+  if (clamped !== vScroll && !render._reclamping) {
+    vScroll = clamped;
+    render._reclamping = true; render(); render._reclamping = false;
+    return;
+  }
+  drawAxis(W, H, step);
+  const innerH = H - AXIS_H;
+  if (contentH > innerH && !VIEW_H) {   // scrollbar indicator (screen only)
+    const bh = Math.max(30, innerH * innerH / contentH);
+    ctx.fillStyle = "rgba(0,0,0,0.18)";
+    ctx.fillRect(W - 5, AXIS_H + (vScroll / (contentH - innerH)) * (innerH - bh), 3, bh);
+  }
+}
+
+function drawEvent(ev, ry, lane) {
+  // Dash only genuinely vague dates; plain year precision renders solid.
+  const uncertain = ["circa", "floruit", "before", "after"].includes(ev.sp);
+  const dim = focusPerson && !ev.people.some(p => p.id === focusPerson);
+  const isSel = selected && selected.id === ev.id;
+  // Focus mode: context desaturates to warm gray but stays readable;
+  // the focused person's events keep color and go bold.
+  const col = dim ? "#c9c1b2" : lane.color;
+  const labelCol = dim ? "#988f7d" : "#2b2620";
+  const innerCol = dim ? "#6b6357" : "#fff";
+  ctx.globalAlpha = uncertain ? 0.8 : 1;
+  ctx.font = (focusPerson && !dim ? "600 " : "") + "12px -apple-system, sans-serif";
+  const barH = 14;
+  let labelX;
+
+  if (ev.span) {
+    ctx.fillStyle = col;
+    roundRect(ev._x0, ry + 2, Math.max(ev._x1 - ev._x0, 4), barH, 4);
+    ctx.fill();
+    if (uncertain) { ctx.strokeStyle = col; ctx.setLineDash([3,3]);
+      roundRect(ev._x0 - 1.5, ry + 0.5, Math.max(ev._x1 - ev._x0, 4) + 3, barH + 3, 5);
+      ctx.stroke(); ctx.setLineDash([]); }
+    if (ev._x1 - ev._x0 > ev._labelW + 10) {
+      ctx.fillStyle = innerCol;
+      ctx.fillText(ev.t, ev._x0 + 6, ry + 13);
+      labelX = null;
+    } else labelX = ev._x1 + 5;
+    hitRects.push({ x0: ev._x0, y0: ry, x1: labelX ? labelX + ev._labelW : ev._x1,
+                    y1: ry + barH + 4, ev });
+  } else {
+    // uncertainty whisker
+    const xs = X(isoY(ev.se)), xl = X(isoY(ev.sl)), xm = (xs + xl) / 2;
+    if (xl - xs > 6) {
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.globalAlpha *= 0.5;
+      ctx.beginPath(); ctx.moveTo(xs, ry + 9); ctx.lineTo(xl, ry + 9); ctx.stroke();
+      ctx.globalAlpha = uncertain ? 0.8 : 1;
+    }
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ev.w === 3 ? ctx.arc(xm, ry + 9, 6, 0, 7) : ctx.arc(xm, ry + 9, 4.5, 0, 7);
+    ctx.fill();
+    labelX = xm + 9;
+    hitRects.push({ x0: Math.min(xs, xm - 7), y0: ry,
+                    x1: labelX + ev._labelW, y1: ry + barH + 4, ev });
+    ev._x0 = xm; ev._x1 = xm;
+  }
+  if (labelX != null) {
+    ctx.fillStyle = labelCol;
+    ctx.fillText(ev.t, labelX, ry + 13);
+  }
+  if (isSel) {
+    ctx.strokeStyle = "#2b2620"; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+    const r = hitRects[hitRects.length - 1];
+    roundRect(r.x0 - 3, r.y0 - 2, r.x1 - r.x0 + 6, r.y1 - r.y0 + 2, 5);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+const MINOR_STEP = { 500: 100, 200: 50, 100: 20, 50: 10, 20: 5, 10: 2, 5: 1, 2: 1, 1: 0 };
+function axisStep() {
+  const span = view.t1 - view.t0;
+  for (const s of [1, 2, 5, 10, 20, 50, 100, 200]) if (span / s <= 14) return s;
+  return 500;
+}
+function drawGrid(W, H, step) {
+  const span = view.t1 - view.t0;
+  ctx.lineWidth = 1;
+  // labeled-year gridlines, full height, under the lanes
+  ctx.strokeStyle = "#e6e0d4";
+  for (let t = Math.ceil(view.t0 / step) * step; t <= view.t1; t += step) {
+    const x = X(t);
+    ctx.beginPath(); ctx.moveTo(x, AXIS_H); ctx.lineTo(x, H); ctx.stroke();
+  }
+  // month gridlines when zoomed very close
+  if (span < 4) {
+    ctx.strokeStyle = "#efe9dd";
+    for (let yr = Math.floor(view.t0); yr <= view.t1; yr++)
+      for (let m = 1; m < 12; m++) {
+        const x = X(yr + m / 12);
+        if (x > 0 && x < W) { ctx.beginPath(); ctx.moveTo(x, AXIS_H);
+          ctx.lineTo(x, H); ctx.stroke(); }
+      }
+  }
+}
+function drawAxis(W, H, step) {
+  // opaque band so scrolled lanes pass beneath it
+  ctx.fillStyle = "#faf8f4";
+  ctx.fillRect(0, 0, W, AXIS_H);
+  ctx.font = "11.5px -apple-system, sans-serif"; ctx.lineWidth = 1;
+  // minor hash marks
+  const minor = MINOR_STEP[step] || 0;
+  if (minor) {
+    ctx.strokeStyle = "#c9c0ae";
+    for (let t = Math.ceil(view.t0 / minor) * minor; t <= view.t1; t += minor) {
+      if (t % step === 0) continue;
+      const x = X(t);
+      ctx.beginPath(); ctx.moveTo(x, AXIS_H - 7); ctx.lineTo(x, AXIS_H - 1); ctx.stroke();
+    }
+  }
+  // labeled major ticks
+  ctx.fillStyle = "#8a8071"; ctx.strokeStyle = "#a89e8a";
+  for (let t = Math.ceil(view.t0 / step) * step; t <= view.t1; t += step) {
+    const x = X(t);
+    ctx.beginPath(); ctx.moveTo(x, AXIS_H - 12); ctx.lineTo(x, AXIS_H - 1); ctx.stroke();
+    ctx.fillText(t, x - 13, 18);
+  }
+  ctx.strokeStyle = "#d8d0c0";
+  ctx.beginPath(); ctx.moveTo(0, AXIS_H - .5); ctx.lineTo(W, AXIS_H - .5); ctx.stroke();
+}
+
+// ---------- interactions ----------
+let drag = null;
+cv.addEventListener("mousedown", e => {
+  drag = { x: e.clientX, y: e.clientY, t0: view.t0, t1: view.t1,
+           s0: vScroll, moved: false };
+  cv.classList.add("dragging");
+});
+window.addEventListener("mousemove", e => {
+  if (drag) {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 5) drag.moved = true;
+    const dt = -dx / cv.clientWidth * (drag.t1 - drag.t0);
+    view.t0 = drag.t0 + dt; view.t1 = drag.t1 + dt;
+    vScroll = clampScroll(drag.s0 - dy);
+    render();
+  } else tooltip(e);
+});
+window.addEventListener("mouseup", e => {
+  cv.classList.remove("dragging");
+  if (drag && !drag.moved) clickAt(e);
+  drag = null;
+});
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) {
+    // trackpad pinch (reported as ctrl+wheel) or ⌘/Ctrl+scroll: zoom
+    const f = Math.pow(1.0032, e.deltaY);
+    zoomAt(e.offsetX, f);
+  } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+    const dt = e.deltaX / cv.clientWidth * (view.t1 - view.t0);
+    view.t0 += dt; view.t1 += dt;
+  } else {
+    vScroll = clampScroll(vScroll + e.deltaY);
+  }
+  render();
+}, { passive: false });
+
+function zoomAt(px, f) {
+  const t = view.t0 + px / cv.clientWidth * (view.t1 - view.t0);
+  let s = (view.t1 - view.t0) * f;
+  s = Math.min(Math.max(s, 0.08), 500);
+  const frac = px / cv.clientWidth;
+  view.t0 = t - s * frac; view.t1 = t + s * (1 - frac);
+}
+
+// touch: 1-finger pan, 2-finger pinch
+let touch = null;
+cv.addEventListener("touchstart", e => {
+  if (e.touches.length === 1)
+    touch = { mode: "pan", x: e.touches[0].clientX, y: e.touches[0].clientY,
+              t0: view.t0, t1: view.t1, s0: vScroll };
+  else if (e.touches.length === 2) {
+    const [a, b] = e.touches;
+    touch = { mode: "pinch", d: Math.abs(a.clientX - b.clientX) || 1,
+              c: (a.clientX + b.clientX) / 2, t0: view.t0, t1: view.t1 };
+  }
+}, { passive: true });
+cv.addEventListener("touchmove", e => {
+  if (!touch) return;
+  e.preventDefault();
+  if (touch.mode === "pan" && e.touches.length === 1) {
+    const dx = e.touches[0].clientX - touch.x, dy = e.touches[0].clientY - touch.y;
+    const dt = -dx / cv.clientWidth * (touch.t1 - touch.t0);
+    view.t0 = touch.t0 + dt; view.t1 = touch.t1 + dt;
+    vScroll = clampScroll(touch.s0 - dy);
+  } else if (touch.mode === "pinch" && e.touches.length === 2) {
+    const [a, b] = e.touches;
+    const d = Math.abs(a.clientX - b.clientX) || 1;
+    const rect = cv.getBoundingClientRect();
+    const px = touch.c - rect.left;
+    const t = touch.t0 + px / cv.clientWidth * (touch.t1 - touch.t0);
+    let s = (touch.t1 - touch.t0) * touch.d / d;
+    s = Math.min(Math.max(s, 0.08), 500);
+    const frac = px / cv.clientWidth;
+    view.t0 = t - s * frac; view.t1 = t + s * (1 - frac);
+  }
+  render();
+}, { passive: false });
+cv.addEventListener("touchend", () => touch = null);
+
+function eventAt(e) {
+  const rect = cv.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  for (let i = hitRects.length - 1; i >= 0; i--) {
+    const r = hitRects[i];
+    if (x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) return r.ev;
+  }
+  return null;
+}
+function clickAt(e) {
+  const ev = eventAt(e);
+  if (!ev) { closeDetail(); return; }   // empty click: collapse the pane
+  selected = ev;
+  showDetail(ev);
+  render();
+}
+const tip = document.getElementById("tooltip");
+function tooltip(e) {
+  const ev = e.target === cv ? eventAt(e) : null;
+  if (!ev) { tip.style.display = "none"; return; }
+  tip.innerHTML = `<b>${esc(ev.t)}</b><br>${esc(evDateLabel(ev))}`;
+  tip.style.display = "block";
+  const rect = main.getBoundingClientRect();
+  tip.style.left = Math.min(e.clientX - rect.left + 14, rect.width - 330) + "px";
+  tip.style.top = (e.clientY - rect.top + 14) + "px";
+}
+
+// ---------- detail panel ----------
+const detail = document.getElementById("detail"),
+      detailInner = document.getElementById("detailInner");
+function showDetail(ev) {
+  if (!ev) { detail.classList.remove("open"); return; }
+  const lane = LANES.find(l => l.id === ev.lane);
+  const badges = [
+    `precision: ${ev.sp}${ev.span ? " → " + ev.ep : ""}`,
+    `calendar: ${ev.cal}`, `weight: ${ev.w}`,
+  ].map(b => `<span class="badge">${esc(b)}</span>`).join("");
+  const confBadge = ev.conf !== "certain"
+    ? `<span class="badge warn">${esc(ev.conf)}</span>` : "";
+  const people = ev.people.map(p =>
+    `<li><span class="personLink" onclick="setFocus(${p.id})">${esc(p.n)}</span>
+     <span style="color:var(--muted)"> — ${esc(p.role)}</span></li>`).join("");
+  const works = ev.works.map(w => { const full = workByTitle(w.title);
+    return full ? workHTML(full)
+      : `<div class="work" style="padding:4px 0 4px 12px">${esc(w.title)} <span style="color:var(--muted)">— ${esc(w.role)}</span></div>`;
+  }).join("");
+  // On a person's Lives entry, list everything they wrote
+  const authored = ev.lane === livesLaneId
+    ? ev.people.filter(p => p.role === "subject").map(p => {
+        const ws = worksBy(p.id);
+        return ws.length ? `<h4>Works by ${esc(p.n)} (${ws.length})</h4>${ws.map(workHTML).join("")}` : "";
+      }).join("") : "";
+  const tags = ev.tags.map(t => `<span class="badge">${esc(t)}</span>`).join(" ");
+  const sources = ev.sources.map(s =>
+    `<li>${s.url ? `<a href="${s.url}" target="_blank">${esc(s.ref)}</a>` : esc(s.ref)}` +
+    `${s.loc ? `<span style="color:var(--muted)">, ${esc(s.loc)}</span>` : ""}</li>`).join("");
+  detailInner.innerHTML = `
+    <button class="close" onclick="closeDetail()">×</button>
+    <button class="close" style="font-size:13px" title="Edit this event"
+      onclick="showForm(EVENTS.find(e=>e.id==='${ev.id}'))">✎ edit</button>
+    <div style="color:${lane.color};font-size:11px;font-weight:650;
+      text-transform:uppercase;letter-spacing:.05em">${esc(lane.name)}</div>
+    <h3>${esc(ev.t)}</h3>
+    <div class="date">${esc(evDateLabel(ev))}</div>
+    ${ev.dar ? `<div class="dar">as recorded: ${esc(ev.dar)}</div>` : ""}
+    <div class="badges">${badges}${confBadge}</div>
+    ${ev.d ? `<div class="desc">${esc(ev.d)}</div>` : ""}
+    ${(ev.x || []).length ? `<h4>From the sources</h4>${excerptsHTML(ev)}` : ""}
+    ${people ? `<h4>People</h4><ul>${people}</ul>` : ""}
+    ${works ? `<h4>Works</h4>${works}` : ""}
+    ${authored}
+    ${tags ? `<h4>Tags</h4><div class="badges">${tags}</div>` : ""}
+    <h4>Sources</h4><ul>${sources || "<li style='color:#b45309'>unsourced</li>"}</ul>`;
+  detail.classList.add("open");
+  setTimeout(resize, 170);
+}
+// Source excerpts: verbatim quotes, plus clearly labelled AI summaries.
+function linkLabel(url) {
+  if (/wikisource\.org/.test(url)) return "Wikisource";
+  if (/gutenberg\.org/.test(url)) return "Project Gutenberg";
+  if (/archive\.org/.test(url)) return "page scan";
+  if (/quod\.lib\.umich\.edu/.test(url)) return "EEBO-TCP";
+  return "link";
+}
+// Works: title page (verbatim), labelled AI summary, link to a free text.
+function workByTitle(t) { return (DATA.works || []).find(w => w.title === t); }
+function worksBy(pid) {
+  return (DATA.works || []).filter(w => (w.authors || []).includes(pid))
+    .sort((a, b) => (a.year || 9999) - (b.year || 9999) || a.title.localeCompare(b.title));
+}
+function workHTML(w) {
+  const body = [];
+  if (w.full_title) body.push(`<div class="wlbl">Title page</div>
+    <div class="xcerpt"><blockquote>${esc(w.full_title)}</blockquote></div>`);
+  if (w.summary) body.push(w.summary_kind === "quote"
+    ? `<div class="xcerpt"><blockquote>${esc(w.summary)}</blockquote>
+         ${w.summary_basis ? `<div class="xcite">— ${esc(w.summary_basis)}</div>` : ""}</div>`
+    : `<div class="xcerpt ai"><span class="ailabel">AI Summary.</span> ${esc(w.summary)}
+         ${w.summary_basis ? `<div class="xcite">based on ${esc(w.summary_basis)}</div>` : ""}</div>`);
+  const links = [];
+  if (w.text_url) links.push(`<a href="${esc(w.text_url)}" target="_blank" rel="noopener">${w.modern_url ? "Original edition" : "Read the text"} ↗</a>`
+    + (w.text_label ? ` <span style="color:var(--muted)">(${esc(w.text_label)})</span>` : ""));
+  if (w.modern_url) links.push(`<a href="${esc(w.modern_url)}" target="_blank" rel="noopener">Modern edition ↗</a>`
+    + (w.modern_label ? ` <span style="color:var(--muted)">(${esc(w.modern_label)})</span>` : ""));
+  if (w.estc_id) links.push(`<span style="color:var(--muted)">${esc(w.estc_id)}</span>`);
+  if (links.length) body.push(`<div>${links.join(" · ")}</div>`);
+  const head = `${w.year ? `<span class="wyear">${w.year}</span>` : ""}${esc(w.title)}`
+    + (w.genre ? ` <span class="wgenre">— ${esc(w.genre)}</span>` : "");
+  return body.length
+    ? `<details class="work"><summary>${head}</summary><div class="wbody">${body.join("")}</div></details>`
+    : `<div class="work" style="padding:4px 0 4px 12px">${head}</div>`;
+}
+function xcite(x) {
+  const bits = [esc(x.ref)];
+  if (x.article) {  // "Headword, by Author" -> s.v. 'Headword' (Author)
+    const [hw, au] = x.article.split(/, by /);
+    bits.push(`s.v. ‘${esc(hw)}’` + (au ? ` (${esc(au)})` : ""));
+  }
+  if (x.loc) bits.push(esc(x.loc));
+  const link = x.url ? ` · <a href="${esc(x.url)}" target="_blank" rel="noopener">${linkLabel(x.url)} ↗</a>` : "";
+  return bits.join(", ") + link;
+}
+function excerptsHTML(ev) {
+  return (ev.x || []).map(x => x.kind === "ai_summary"
+    ? `<div class="xcerpt ai"><span class="ailabel">AI Summary.</span> ${esc(x.body)}
+         <div class="xcite">summarizing ${xcite(x)}</div></div>`
+    : `<div class="xcerpt"><blockquote>${esc(x.body).replace(/\n\n/g, "<br><br>")}</blockquote>
+         <div class="xcite">— ${xcite(x)}</div></div>`).join("");
+}
+function closeDetail() { selected = null; detail.classList.remove("open");
+  setTimeout(resize, 170); render(); }
+
+// ---------- focus, search, filters ----------
+function setFocus(pid) {
+  focusPerson = pid;
+  vScroll = 0;   // focused lanes float to the top — start there
+  document.getElementById("personSel").value = pid;
+  if (pid) {
+    const evs = EVENTS.filter(e => e.people.some(p => p.id === pid));
+    if (evs.length) {
+      const t0 = Math.min(...evs.map(e => isoY(e.se))),
+            t1 = Math.max(...evs.map(e => isoY(e.el)));
+      const pad = Math.max((t1 - t0) * 0.15, 2);
+      view.t0 = t0 - pad; view.t1 = t1 + pad;
+    }
+  }
+  render();
+}
+function jumpTo(ev) {
+  const mid = (isoY(ev.se) + isoY(ev.el)) / 2;
+  const span = Math.max((isoY(ev.el) - isoY(ev.se)) * 2.5, 12);
+  view.t0 = mid - span / 2; view.t1 = mid + span / 2;
+  selected = ev; showDetail(ev); render();
+}
+
+const searchBox = document.getElementById("search"),
+      searchResults = document.getElementById("searchResults");
+searchBox.addEventListener("input", () => {
+  const q = searchBox.value.trim().toLowerCase();
+  if (q.length < 2) { searchResults.style.display = "none"; return; }
+  const hits = EVENTS.filter(e =>
+    e.t.toLowerCase().includes(q) || (e.d || "").toLowerCase().includes(q) ||
+    e.people.some(p => p.n.toLowerCase().includes(q))).slice(0, 20);
+  searchResults.innerHTML = hits.map((e, i) =>
+    `<div data-i="${e.id}"><span class="yr">${e.se.slice(0,4)}</span>${esc(e.t)}</div>`
+  ).join("") || "<div style='color:var(--muted)'>no matches</div>";
+  searchResults.style.display = "block";
+  searchResults.querySelectorAll("div[data-i]").forEach(el =>
+    el.addEventListener("mousedown", () => {
+      jumpTo(EVENTS.find(e => e.id === el.dataset.i));
+      searchResults.style.display = "none"; searchBox.value = "";
+    }));
+});
+searchBox.addEventListener("blur", () =>
+  setTimeout(() => searchResults.style.display = "none", 150));
+
+document.getElementById("weightSel").addEventListener("change", e => {
+  weightMode = e.target.value; render(); });
+document.getElementById("hideDisputed").addEventListener("change", e => {
+  hideDisputed = e.target.checked; render(); refreshReport(); });
+document.getElementById("tagSel").addEventListener("change", e => {
+  tagFilter = e.target.value; render(); refreshReport(); });
+document.getElementById("personSel").addEventListener("change", e => {
+  setFocus(e.target.value); refreshReport(); });
+document.getElementById("resetBtn").addEventListener("click", () => {
+  view = { ...FULL }; focusPerson = ""; tagFilter = ""; weightMode = "auto";
+  hideDisputed = false; selected = null; hiddenPersons = new Set(); vScroll = 0;
+  document.getElementById("personSel").value = "";
+  document.getElementById("tagSel").value = "";
+  document.getElementById("weightSel").value = "auto";
+  document.getElementById("hideDisputed").checked = false;
+  activeLanes = new Set(LANES.map(l => l.id));
+  applyData(DATA);
+  closeDetail(); refreshReport();
+});
+
+// ---------- add / edit form ----------
+function editDateStr(se, sl, prec) {
+  if (prec === "day") return se;
+  if (prec === "month") return se.slice(0, 7);
+  if (prec === "year") return se.slice(0, 4);
+  if (prec === "circa") return "c. " + Math.round((isoY(se) + isoY(sl)) / 2);
+  if (prec === "range") return se.slice(0, 4) + ".." + sl.slice(0, 4);
+  if (prec === "before") return "before " + sl.slice(0, 4);
+  if (prec === "after") return "after " + se.slice(0, 4);
+  if (prec === "floruit") return "fl. " + se.slice(0, 4);
+  return se;
+}
+function showForm(ev) {
+  const opts = (list, sel) => list.map(v =>
+    `<option ${v === sel ? "selected" : ""}>${v}</option>`).join("");
+  detailInner.innerHTML = `
+    <button class="close" onclick="${ev ? `showDetail(EVENTS.find(e=>e.id==='${ev.id}'))` : "closeDetail()"}">×</button>
+    <h3>${ev ? "Edit event" : "New event"}</h3>
+    <div class="fform">
+      <label>Title</label><input id="f_title" value="${ev ? esc(ev.t).replace(/"/g,"&quot;") : ""}">
+      <div class="row">
+        <div><label>Start date</label><input id="f_start" placeholder="e.g. 30 Jan 1648/9"
+          value="${ev ? editDateStr(ev.se, ev.sl, ev.sp) : ""}"></div>
+        <div><label>End (spans only)</label><input id="f_end" placeholder="blank = point"
+          value="${ev && ev.span ? editDateStr(ev.ee, ev.el, ev.ep) : ""}"></div>
+      </div>
+      <div class="parsePrev" id="parsePrev">formats: 1649 · Jan 1649 · 30 Jan 1648/9 · c. 1611 · 1620s · fl. 1620s · before 1642 · 1605..1609</div>
+      <div class="row">
+        <div><label>Lane</label><select id="f_lane">${LANES.map(l =>
+          `<option value="${l.id}" ${ev && ev.lane === l.id ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select></div>
+        <div><label>Weight</label><select id="f_weight">${opts(["1","2","3"], String(ev ? ev.w : 2))}</select></div>
+      </div>
+      <div class="row">
+        <div><label>Confidence</label><select id="f_conf">${opts(
+          ["certain","probable","disputed","traditional"], ev ? ev.conf : "certain")}</select></div>
+        <div><label>Calendar</label><select id="f_cal">${opts(
+          ["julian","gregorian","unknown"], ev ? ev.cal : "julian")}</select></div>
+      </div>
+      <label>Date as recorded (OS form; auto-filled for split years)</label>
+      <input id="f_dar" value="${ev && ev.dar ? esc(ev.dar).replace(/"/g,"&quot;") : ""}">
+      <label>Description</label><textarea id="f_desc">${ev && ev.d ? esc(ev.d) : ""}</textarea>
+      <label>People — one per line: Name | role (subject/participant/affected)</label>
+      <textarea id="f_people">${ev ? ev.people.map(p => `${esc(p.n)} | ${p.role}`).join("\n") : ""}</textarea>
+      <label>Tags — comma-separated, ns:name (bare words become topic:)</label>
+      <input id="f_tags" value="${ev ? ev.tags.join(", ") : ""}">
+      <label>Sources — one per line: ShortRef | locator</label>
+      <textarea id="f_sources">${ev ? ev.sources.map(s => `${esc(s.ref)}${s.loc ? " | " + esc(s.loc) : ""}`).join("\n") : ""}</textarea>
+      <div class="btns">
+        <button class="primary" onclick="saveForm(${ev ? `'${ev.id}'` : "null"})">Save</button>
+        <button onclick="${ev ? `showDetail(EVENTS.find(e=>e.id==='${ev.id}'))` : "closeDetail()"}">Cancel</button>
+        ${ev ? `<button class="danger" onclick="deleteEvent('${ev.id}')">Delete</button>` : ""}
+      </div>
+    </div>`;
+  detail.classList.add("open");
+  for (const id of ["f_start", "f_end"])
+    document.getElementById(id).addEventListener("change", previewDates);
+  setTimeout(resize, 170);
+}
+function previewDates() {
+  const prev = document.getElementById("parsePrev");
+  const parts = [];
+  for (const id of ["f_start", "f_end"]) {
+    const v = document.getElementById(id).value.trim();
+    if (!v) continue;
+    const r = parseDateStr(v);
+    if (!r) {
+      prev.textContent = `Could not parse date: '${v}'`;
+      prev.className = "parsePrev err"; return;
+    }
+    parts.push(`${r.se} → ${r.sl} (${r.sp})`);
+  }
+  prev.textContent = parts.join("  ·  ");
+  prev.className = "parsePrev";
+}
+function splitLines(id, f) {
+  return document.getElementById(id).value.split("\n").map(l => l.trim())
+    .filter(Boolean).map(f);
+}
+async function saveForm(id) {
+  if (offlineGuard()) return;
+  const val = x => document.getElementById(x).value.trim();
+  const startStr = val("f_start"), endStr = val("f_end");
+  const st = parseDateStr(startStr);
+  if (!val("f_title") || !st) {
+    alert(st ? "A title is required." : `Could not parse start date '${startStr}'.`);
+    return;
+  }
+  const en = endStr ? parseDateStr(endStr) : null;
+  if (endStr && !en) { alert(`Could not parse end date '${endStr}'.`); return; }
+  const payload = {
+    id: id || null, title: val("f_title"),
+    description: val("f_desc") || null, lane_id: val("f_lane"),
+    se: st.se, sl: st.sl, sp: st.sp,
+    ee: en ? en.se : st.se, el: en ? en.sl : st.sl, ep: en ? en.sp : st.sp,
+    span: !!en,
+    calendar: val("f_cal"), confidence: val("f_conf"), weight: +val("f_weight"),
+    dar: val("f_dar") || st.dar || (en && en.dar) || null,
+    people: splitLines("f_people", l => {
+      const [n, role] = l.split("|").map(x => x.trim());
+      return { n, role: role || "participant" }; }),
+    tags: val("f_tags").split(",").map(t => t.trim()).filter(Boolean),
+    sources: splitLines("f_sources", l => {
+      const [ref, loc] = l.split("|").map(x => x.trim());
+      return { ref, loc: loc || null }; }),
+  };
+  const { data, error } = await sb.rpc("save_event", { p: payload });
+  if (error) { alert(error.message); return; }
+  await refetchAll(data);
+}
+async function deleteEvent(id) {
+  if (offlineGuard()) return;
+  if (!confirm("Delete this event? (Soft delete — recoverable in the database.)")) return;
+  const { error } = await sb.rpc("delete_event", { p_id: id });
+  if (error) { alert(error.message); return; }
+  closeDetail();
+  await refetchAll(null);
+}
+async function refetchAll(selectId) {
+  const data = await loadPayload();
+  applyData(data);
+  if (selectId) {
+    selected = EVENTS.find(e => e.id === selectId) || null;
+    if (selected) showDetail(selected);
+  }
+  render(); refreshReport();
+}
+document.getElementById("addBtn").addEventListener("click", () => showForm(null));
+
+// ---------- report ----------
+const reportEl = document.getElementById("report");
+const rFrom = document.getElementById("rFrom"), rTo = document.getElementById("rTo");
+let reportGroup = "band";
+
+function reportRange() {
+  const a = parseInt(rFrom.value, 10), b = parseInt(rTo.value, 10);
+  const r0 = Number.isFinite(a) ? a : Math.floor(FULL.t0);
+  const r1 = Number.isFinite(b) ? b : Math.ceil(FULL.t1);
+  return r0 <= r1 ? [r0, r1] : [r1, r0];
+}
+function yr(n) { return String(n).padStart(4, "0"); }
+
+// Every event overlapping the range (ignores zoom/detail level by design).
+function rangeEvents() {
+  const [r0, r1] = reportRange();
+  const lo = `${yr(r0)}-01-01`, hi = `${yr(r1)}-12-31`;
+  return EVENTS
+    .filter(e => passesStatic(e) && e.se <= hi && e.el >= lo)
+    // Personal lane is virtual: mirrors the timeline's focus-mode rule
+    .filter(e => e.lane !== personalLaneId
+                 || (focusPerson && e.people.some(p => p.id === focusPerson)))
+    .map(e => Object.assign({}, e, { carry: e.se < lo }));
+}
+
+function evHTML(ev) {
+  const lane = LANES.find(l => l.id === ev.lane) || { color: "#888" };
+  const meta = [`precision: ${ev.sp}${ev.span ? " → " + ev.ep : ""}`, ev.cal,
+                `weight ${ev.w}`];
+  if (ev.conf !== "certain") meta.push(ev.conf);
+  if (ev.dar) meta.push(`as recorded: ${ev.dar}`);
+  const bits = [];
+  if (ev.people.length) bits.push(`<b>People:</b> ` +
+    ev.people.map(p => `${esc(p.n)} (${esc(p.role)})`).join(", "));
+  if (ev.works.length) bits.push(`<b>Works:</b> ` +
+    ev.works.map(w => esc(w.title)).join(", "));
+  if (ev.tags.length) bits.push(`<b>Tags:</b> ${ev.tags.map(esc).join(", ")}`);
+  bits.push(`<b>Sources:</b> ` + (ev.sources.length
+    ? ev.sources.map(s => esc(s.ref) + (s.loc ? ", " + esc(s.loc) : "")).join("; ")
+    : "unsourced"));
+  return `<div class="evt">
+    <div class="etitle"><span class="edot" style="background:${lane.color}"></span>${esc(ev.t)}
+      <span class="edate">${esc(evDateLabel(ev))}</span>
+      ${ev.carry ? `<span class="ecarry">began ${ev.se.slice(0, 4)}</span>` : ""}</div>
+    <div class="emeta">${esc(meta.join(" · "))}</div>
+    ${ev.d ? `<div class="edesc">${esc(ev.d)}</div>` : ""}
+    <div class="elinks">${bits.join(" &nbsp;·&nbsp; ")}</div>
+  </div>`;
+}
+
+// Key for the data strips. onlyActive=true limits it to enabled lanes.
+function stripLegendHTML(onlyActive) {
+  const strips = (DATA.strips || [])
+    .filter(s => !onlyActive || activeLanes.has(s.lane));
+  if (!strips.length) return "";
+  return strips.map(s => {
+    const span = s.values.length
+      ? `${s.values[0][0]}–${s.values[s.values.length - 1][0]}` : "";
+    if (s.unit === "category") {
+      const present = CAT_ORDER.filter(c => s.values.some(v => v[2] === c));
+      return `<div class="key"><div class="kname">${esc(s.name)} · ${span}</div>
+        <div class="kcats">${present.map(c =>
+          `<span class="kcat"><span class="kswatch"
+             style="background:${CAT_COLORS[c]}"></span>${c}</span>`).join("")}</div></div>`;
+    }
+    const stops = [0, .25, .5, .75, 1].map(f => heatColor(f)).join(", ");
+    const mid = ((s.min + s.max) / 2).toFixed(1);
+    return `<div class="key"><div class="kname">${esc(s.name)} · ${span}</div>
+      <div class="kbar" style="background:linear-gradient(to right, ${stops})"></div>
+      <div class="kscale"><span>${s.min}${esc(s.unit)}</span>
+        <span>${mid}${esc(s.unit)}</span><span>${s.max}${esc(s.unit)}</span></div></div>`;
+  }).join("");
+}
+
+// Sources actually cited by the events in range, plus the data series shown.
+function sourcesHTML(evs) {
+  const used = new Map();
+  for (const e of evs)
+    for (const s of e.sources) used.set(s.ref, (used.get(s.ref) || 0) + 1);
+  const stripRefs = (DATA.strips || [])
+    .filter(s => activeLanes.has(s.lane) && s.source).map(s => s.source);
+  const all = DATA.sources || [];
+  const find = ref => all.find(s => s.short_ref === ref) || { short_ref: ref };
+  const cited = [...used.keys()].filter(r => r !== "Seed v0").sort();
+  const strips = stripRefs.filter(r => !cited.includes(r)).sort();
+  const item = (ref, tail) => {
+    const s = find(ref);
+    return `<div class="srcitem"><b>${esc(s.short_ref)}</b> — ${esc(s.full_citation
+      || "(citation not yet recorded)")}${s.reliability_note
+      ? ` <em>${esc(s.reliability_note)}</em>` : ""}${tail || ""}</div>`;
+  };
+  let html = `<section class="rlane"><h4>Sources</h4>`;
+  if (used.has("Seed v0"))
+    html += `<div class="srcnote">General context events in this report
+      (${used.get("Seed v0")} of them) are drawn from the project's compiled
+      backbone dataset — assembled from standard reference works for orientation
+      and <b>not yet verified against authorities</b>. Treat their dates and
+      descriptions as provisional; the precision and confidence fields on each
+      event record how far they should be trusted.</div>`;
+  if (cited.length) {
+    html += `<div class="srcnote">Events in this report cite the following:</div>`;
+    html += cited.map(r => item(r,
+      ` <span class="cited">(${used.get(r)} event${used.get(r) === 1 ? "" : "s"})</span>`
+    )).join("");
+  }
+  if (strips.length) {
+    html += `<div class="srcnote">Data series shown as bands:</div>`;
+    html += strips.map(r => item(r, "")).join("");
+  }
+  return html + `</section>`;
+}
+
+function buildReport(opts) {
+  const skipKey = !!(opts && opts.skipKey);
+  const [r0, r1] = reportRange();
+  const evs = rangeEvents();
+  const byStart = (a, b) => (a.se < b.se ? -1 : a.se > b.se ? 1 : 0);
+  if (!evs.length)
+    return `<p style="color:var(--muted); margin-top:16px">No events in
+            ${r0}–${r1} with the current lane and filter settings.</p>`;
+  let html = skipKey ? "" : stripLegendHTML(true);
+  if (reportGroup === "band") {
+    for (const lane of LANES) {
+      const list = evs.filter(e => e.lane === lane.id).sort(byStart);
+      if (!list.length) continue;
+      html += `<section class="rlane"><h4 style="color:${lane.color}">
+        ${esc(lane.name)} <span>(${list.length})</span></h4>
+        ${list.map(evHTML).join("")}</section>`;
+    }
+  } else {
+    const carry = evs.filter(e => e.carry).sort(byStart);
+    const rest = evs.filter(e => !e.carry).sort(byStart);
+    if (carry.length)
+      html += `<section class="rlane"><h4>Already under way at ${r0}
+        <span>(${carry.length})</span></h4>${carry.map(evHTML).join("")}</section>`;
+    html += `<section class="rlane"><h4>${r0}–${r1}, in order
+      <span>(${rest.length})</span></h4>${rest.map(evHTML).join("")}</section>`;
+  }
+  if (document.getElementById("rSources").checked) html += sourcesHTML(evs);
+  return html;
+}
+
+function refreshReport() {
+  if (!reportEl.classList.contains("open")) return;
+  document.getElementById("reportBody").innerHTML = buildReport();
+  const evs = rangeEvents(), c = evs.filter(e => e.carry).length;
+  const [r0, r1] = reportRange();
+  document.getElementById("rCount").textContent =
+    `${evs.length} events in ${r0}–${r1}` + (c ? ` · ${c} already under way` : "");
+}
+function applyRange() {
+  const [r0, r1] = reportRange();
+  view.t0 = r0; view.t1 = r1 + 1; vScroll = 0; render();
+}
+function openReport() {
+  rFrom.value = Math.floor(view.t0);
+  rTo.value = Math.max(Math.floor(view.t0), Math.ceil(view.t1) - 1);
+  reportEl.classList.add("open");
+  refreshReport();
+  setTimeout(resize, 170);
+}
+function closeReport() { reportEl.classList.remove("open"); setTimeout(resize, 170); }
+document.getElementById("reportBtn").addEventListener("click", () =>
+  reportEl.classList.contains("open") ? closeReport() : openReport());
+for (const el of [rFrom, rTo])
+  el.addEventListener("change", () => { applyRange(); refreshReport(); });
+document.getElementById("rGroup").addEventListener("change", e => {
+  reportGroup = e.target.value; refreshReport();
+});
+document.getElementById("rSources").addEventListener("change", refreshReport);
+
+// ---------- print / PDF ----------
+// Draw the strip key onto a canvas (baked into the print image, so it can't be
+// lost to the browser's "don't print background colours" behaviour).
+function keyHeight(strips) {
+  return strips.reduce((h, s) => h + 14 + (s.unit === "category" ? 18 : 26) + 6, 8);
+}
+function drawStripKey(g, x, y, maxW, strips) {
+  let cy = y + 4;
+  for (const s of strips) {
+    const span = s.values.length
+      ? `${s.values[0][0]}–${s.values[s.values.length - 1][0]}` : "";
+    g.font = "600 11px -apple-system, sans-serif";
+    g.fillStyle = "#5c5446";
+    g.fillText(`${s.name} · ${span}`, x, cy + 9);
+    cy += 14;
+    g.lineWidth = 1; g.strokeStyle = "rgba(0,0,0,.18)";
+    if (s.unit === "category") {
+      let cx = x;
+      g.font = "11px -apple-system, sans-serif";
+      for (const c of CAT_ORDER) {
+        if (!s.values.some(v => v[2] === c)) continue;
+        g.fillStyle = CAT_COLORS[c];
+        g.fillRect(cx, cy, 14, 10);
+        g.strokeRect(cx + 0.5, cy + 0.5, 13, 9);
+        g.fillStyle = "#5c5446";
+        g.fillText(c, cx + 18, cy + 9);
+        cx += 32 + g.measureText(c).width;
+      }
+      cy += 18;
+    } else {
+      const barW = Math.min(260, maxW - 140);
+      const grad = g.createLinearGradient(x, 0, x + barW, 0);
+      for (let i = 0; i <= 10; i++) grad.addColorStop(i / 10, heatColor(i / 10));
+      g.fillStyle = grad;
+      g.fillRect(x, cy, barW, 10);
+      g.strokeRect(x + 0.5, cy + 0.5, barW - 1, 9);
+      g.font = "10.5px -apple-system, sans-serif";
+      g.fillStyle = "#5c5446";
+      const mid = ((s.min + s.max) / 2).toFixed(1);
+      g.fillText(`${s.min}${s.unit}`, x, cy + 21);
+      g.fillText(`${mid}${s.unit}`, x + barW / 2 - 14, cy + 21);
+      g.fillText(`${s.max}${s.unit}`, x + barW - 32, cy + 21);
+      cy += 26;
+    }
+    cy += 6;
+  }
+}
+
+// Render the whole timeline (all enabled lanes, full height) to a PNG.
+function timelineSnapshot(width) {
+  const scale = 2, savedCtx = ctx, savedScroll = vScroll, savedSel = selected;
+  selected = null; vScroll = 0; VIEW_W = width; VIEW_H = 20000;
+  const probe = document.createElement("canvas");
+  probe.width = width * scale; probe.height = 200;
+  ctx = probe.getContext("2d"); ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  render();                                    // measures contentH
+  const h = Math.min(contentH + AXIS_H + 6, 14000);
+  VIEW_H = h;
+  const off = document.createElement("canvas");
+  off.width = width * scale; off.height = h * scale;
+  ctx = off.getContext("2d"); ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  render();
+  const strips = (DATA.strips || []).filter(s => activeLanes.has(s.lane));
+  const kh = strips.length ? keyHeight(strips) : 0;
+  const out = document.createElement("canvas");
+  out.width = off.width; out.height = off.height + kh * scale;
+  const octx = out.getContext("2d");
+  octx.fillStyle = "#faf8f4"; octx.fillRect(0, 0, out.width, out.height);
+  octx.drawImage(off, 0, 0);
+  if (kh) {
+    octx.setTransform(scale, 0, 0, scale, 0, 0);
+    drawStripKey(octx, 10, h, width - 20, strips);
+  }
+  ctx = savedCtx; VIEW_W = VIEW_H = null; vScroll = savedScroll; selected = savedSel;
+  render();
+  return out.toDataURL("image/png");
+}
+function printReport() {
+  if (!reportEl.classList.contains("open")) openReport();
+  const [r0, r1] = reportRange();
+  const img = timelineSnapshot(1600);
+  document.getElementById("printArea").innerHTML =
+    `<h1>Puritan Era Timeline Events, ${r0}–${r1}</h1>
+     <img src="${img}" alt="timeline">
+     ${buildReport({ skipKey: true })}`;
+  setTimeout(() => window.print(), 60);
+}
+
+// ---------- saved views ----------
+async function saveView() {
+  if (offlineGuard()) return;
+  const sel = document.getElementById("viewSel");
+  const current = DATA.views.find(v => v.id === sel.value);
+  const name = prompt("Name this view:", current ? current.name : "");
+  if (!name) return;
+  const [r0, r1] = reportRange();
+  const config = { t0: r0, t1: r1, lanes: [...activeLanes], hidden: [...hiddenPersons],
+                   group: reportGroup, tag: tagFilter, hideDisputed,
+                   weight: weightMode, focus: focusPerson,
+                   sources: document.getElementById("rSources").checked };
+  const { data, error } = await sb.rpc("save_view",
+    { p_name: name, p_config: config });
+  if (error) { alert(error.message); return; }
+  await refetchAll(null);
+  document.getElementById("viewSel").value = data;
+}
+async function deleteView() {
+  if (offlineGuard()) return;
+  const sel = document.getElementById("viewSel");
+  if (!sel.value) return;
+  const v = DATA.views.find(x => x.id === sel.value);
+  if (!confirm(`Delete saved view “${v ? v.name : ""}”?`)) return;
+  const { error } = await sb.rpc("delete_view", { p_id: sel.value });
+  if (error) { alert(error.message); return; }
+  await refetchAll(null);
+}
+function applyView(v) {
+  const c = v.config || {};
+  // A view saved before the Supabase migration holds old numeric ids; if none
+  // of them match, fall back to all lanes rather than showing a blank timeline.
+  const wanted = (c.lanes || []).filter(id => LANES.some(l => l.id === id));
+  activeLanes = new Set(wanted.length ? wanted : LANES.map(l => l.id));
+  hiddenPersons = new Set((c.hidden || []).filter(
+    id => DATA.persons.some(p => p.id === id)));
+  reportGroup = c.group || "band";
+  tagFilter = c.tag || "";
+  hideDisputed = !!c.hideDisputed;
+  weightMode = c.weight || "auto";
+  focusPerson = DATA.persons.some(p => p.id === c.focus) ? c.focus : "";
+  applyData(DATA);                       // rebuild sidebar from restored state
+  rFrom.value = c.t0; rTo.value = c.t1;
+  document.getElementById("rGroup").value = reportGroup;
+  document.getElementById("rSources").checked = c.sources !== false;
+  document.getElementById("tagSel").value = tagFilter;
+  document.getElementById("hideDisputed").checked = hideDisputed;
+  document.getElementById("weightSel").value = weightMode;
+  document.getElementById("personSel").value = focusPerson;
+  if (!reportEl.classList.contains("open")) {
+    reportEl.classList.add("open"); setTimeout(resize, 170);
+  }
+  applyRange(); refreshReport();
+}
+document.getElementById("viewSave").addEventListener("click", saveView);
+document.getElementById("viewDel").addEventListener("click", deleteView);
+document.getElementById("viewSel").addEventListener("change", e => {
+  const v = DATA.views.find(x => x.id === e.target.value);
+  if (v) applyView(v);
+});
+
+// ---------- init ----------
+const seenLanes = new Set();
+function applyData(data) {
+  DATA = data; LANES = data.lanes; EVENTS = data.events;
+  for (const l of LANES)
+    if (!seenLanes.has(l.id)) { seenLanes.add(l.id); activeLanes.add(l.id); }
+
+  const lt = document.getElementById("laneToggles");
+  lt.innerHTML = LANES.map(l =>
+    `<label class="laneRow"><input type="checkbox" ${activeLanes.has(l.id) ? "checked" : ""}
+     data-id="${l.id}"><span class="swatch" style="background:${l.color}"></span>
+     ${esc(l.name)}${l.name === "Personal" ? " <span style='color:var(--muted)'>(focus)</span>" : ""}</label>`
+  ).join("");
+  lt.querySelectorAll("input").forEach(i => i.addEventListener("change", () => {
+    i.checked ? activeLanes.add(i.dataset.id) : activeLanes.delete(i.dataset.id);
+    render(); refreshReport();
+  }));
+
+  // Lives-band person toggles (affect timeline and report alike)
+  livesLaneId = (LANES.find(l => l.name === "Lives") || {}).id || 0;
+  personalLaneId = (LANES.find(l => l.name === "Personal") || {}).id || 0;
+  const subjects = new Set();
+  for (const e of EVENTS)
+    if (e.lane === livesLaneId)
+      for (const p of e.people) if (p.role === "subject") subjects.add(p.id);
+  const pt = document.getElementById("personToggles");
+  pt.innerHTML = data.persons.filter(p => subjects.has(p.id)).map(p =>
+    `<label class="laneRow"><input type="checkbox" data-pid="${p.id}"
+     ${hiddenPersons.has(p.id) ? "" : "checked"}>${esc(p.n)}</label>`).join("");
+  pt.querySelectorAll("input").forEach(i => i.addEventListener("change", () => {
+    const pid = i.dataset.pid;
+    i.checked ? hiddenPersons.delete(pid) : hiddenPersons.add(pid);
+    render(); refreshReport();
+  }));
+  const setAllPersons = on => {
+    hiddenPersons = on ? new Set() : new Set([...subjects]);
+    pt.querySelectorAll("input").forEach(i => i.checked = on);
+    render(); refreshReport();
+  };
+  document.getElementById("pAll").onclick = () => setAllPersons(true);
+  document.getElementById("pNone").onclick = () => setAllPersons(false);
+
+  // data-strip key (sidebar shows all series, regardless of lane toggles)
+  document.getElementById("stripKey").innerHTML =
+    stripLegendHTML(false) || `<span class="muted" style="font-size:12px">
+      no data series loaded</span>`;
+
+  // saved views
+  const vs = document.getElementById("viewSel");
+  const keepView = vs.value;
+  vs.innerHTML = `<option value="">— saved views —</option>` +
+    (data.views || []).map(v =>
+      `<option value="${v.id}">${esc(v.name)}</option>`).join("");
+  vs.value = keepView;
+
+  const ps = document.getElementById("personSel");
+  const keep = ps.value;
+  ps.innerHTML = `<option value="">— focus person —</option>` +
+    data.persons.map(p => `<option value="${p.id}">${esc(p.n)}</option>`).join("");
+  ps.value = keep || "";
+
+  const tagCounts = {};
+  for (const e of EVENTS) for (const t of e.tags)
+    tagCounts[t] = (tagCounts[t] || 0) + 1;
+  const byNs = {};
+  for (const t of Object.keys(tagCounts).sort()) {
+    const ns = t.split(":")[0];
+    (byNs[ns] = byNs[ns] || []).push(t);
+  }
+  const ts = document.getElementById("tagSel");
+  const keepTag = ts.value;
+  ts.innerHTML = `<option value="">— all tags —</option>` +
+    Object.entries(byNs).map(([ns, tags]) =>
+      `<optgroup label="${ns}">` + tags.map(t =>
+        `<option value="${t}">${t.split(":")[1]} (${tagCounts[t]})</option>`
+      ).join("") + `</optgroup>`).join("");
+  ts.value = keepTag;
+}
+// ---------- date parsing (port of the Python parser) ----------
+const CIRCA_YEARS = 3;
+const MONTH_IDX = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6,
+                    jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
+const pad4 = n => String(n).padStart(4, "0");
+const pad2 = n => String(n).padStart(2, "0");
+const lastDay = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+const monthSpan = (y, m) =>
+  [`${pad4(y)}-${pad2(m)}-01`, `${pad4(y)}-${pad2(m)}-${pad2(lastDay(y, m))}`];
+
+// Returns {se, sl, sp, dar} or null. Accepts: 1649 · 1649-01 · 1649-01-30 ·
+// 30 Jan 1649 · Jan 1649 · 30 January 1648/9 · 1648/9 · c. 1611 · 1620s ·
+// fl. 1620s · before 1642 · after 1642 · 1605..1609
+function parseDateStr(str) {
+  const s = (str || "").trim();
+  let m;
+  const R = (se, sl, sp, dar) => ({ se, sl, sp, dar: dar || null });
+  if ((m = /^(\d{4})$/.exec(s))) {
+    const y = +m[1]; return R(`${pad4(y)}-01-01`, `${pad4(y)}-12-31`, "year");
+  }
+  if ((m = /^(\d{4})-(\d{1,2})$/.exec(s))) {
+    const [a, b] = monthSpan(+m[1], +m[2]); return R(a, b, "month");
+  }
+  if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s))) {
+    const d = `${pad4(+m[1])}-${pad2(+m[2])}-${pad2(+m[3])}`;
+    return R(d, d, "day");
+  }
+  if ((m = /^c\.?\s*(\d{4})$/i.exec(s))) {
+    const y = +m[1];
+    return R(`${pad4(y - CIRCA_YEARS)}-01-01`, `${pad4(y + CIRCA_YEARS)}-12-31`,
+             "circa");
+  }
+  if ((m = /^(\d{4})s$/.exec(s))) {
+    const y = +m[1]; return R(`${pad4(y)}-01-01`, `${pad4(y + 9)}-12-31`, "range");
+  }
+  if ((m = /^fl\.?\s*(\d{4})(s?)$/i.exec(s))) {
+    const y = +m[1], y2 = m[2] ? y + 9 : y;
+    return R(`${pad4(y)}-01-01`, `${pad4(y2)}-12-31`, "floruit");
+  }
+  if ((m = /^before\s+(\d{4})$/i.exec(s))) {
+    const y = +m[1]; return R(`${pad4(y - 10)}-01-01`, `${pad4(y)}-12-31`, "before");
+  }
+  if ((m = /^after\s+(\d{4})$/i.exec(s))) {
+    const y = +m[1]; return R(`${pad4(y)}-01-01`, `${pad4(y + 10)}-12-31`, "after");
+  }
+  if ((m = /^(\d{4})\s*(?:\.\.|–|—)\s*(\d{4})$/.exec(s)))
+    return R(`${pad4(+m[1])}-01-01`, `${pad4(+m[2])}-12-31`, "range");
+  if ((m = /^(\d{4})\/\d{1,3}$/.exec(s))) {   // bare split year: 1 Jan–24 Mar
+    const y = +m[1] + 1;
+    return R(`${pad4(y)}-01-01`, `${pad4(y)}-03-24`, "range", s);
+  }
+  if ((m = /^(?:(\d{1,2})\s+)?([A-Za-z]+)\.?\s+(\d{4})(\/\d{1,3})?$/.exec(s))) {
+    const mon = MONTH_IDX[m[2].slice(0, 3).toLowerCase()];
+    if (mon) {
+      const y = +m[3] + (m[4] ? 1 : 0);       // split year → modern year
+      const dar = m[4] ? s : null;
+      if (m[1]) {
+        const d = `${pad4(y)}-${pad2(mon)}-${pad2(+m[1])}`;
+        return R(d, d, "day", dar);
+      }
+      const [a, b] = monthSpan(y, mon);
+      return R(a, b, "month", dar);
+    }
+  }
+  return null;
+}
+
+// ---------- Supabase, auth, offline cache ----------
+const CACHE_KEY = "ptl_payload_v1";
+let sb = null, READONLY = false;
+
+function offlineGuard() {
+  if (READONLY) {
+    alert("Offline — showing cached data. Editing is disabled until you reconnect.");
+    return true;
+  }
+  return false;
+}
+function setNetState(msg) {
+  document.getElementById("netState").textContent = msg || "";
+}
+async function loadPayload() {
+  try {
+    const { data, error } = await sb.rpc("timeline_payload");
+    if (error) throw error;
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(
+        { at: new Date().toISOString(), payload: data }));
+    } catch (e) { /* cache full: not fatal */ }
+    READONLY = false; setNetState("");
+    return data;
+  } catch (e) {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) throw e;
+    const c = JSON.parse(raw);
+    READONLY = true;
+    setNetState(`offline · cached ${new Date(c.at).toLocaleString()}`);
+    return c.payload;
+  }
+}
+async function startApp() {
+  document.getElementById("gate").classList.remove("show");
+  applyData(await loadPayload());
+  resize();
+}
+function showGate(msg) {
+  document.getElementById("gate").classList.add("show");
+  document.getElementById("gateMsg").textContent = msg || "";
+  document.getElementById("gateOffline").style.display =
+    localStorage.getItem(CACHE_KEY) ? "block" : "none";
+}
+document.getElementById("gateForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = document.getElementById("gateMsg");
+  msg.textContent = "signing in…";
+  const { error } = await sb.auth.signInWithPassword({
+    email: document.getElementById("gateEmail").value.trim(),
+    password: document.getElementById("gatePass").value });
+  if (error) { msg.textContent = error.message; return; }
+  msg.textContent = "";
+  startApp();
+});
+document.getElementById("gateOffline").addEventListener("click", () => {
+  const raw = localStorage.getItem(CACHE_KEY);
+  if (!raw) return;
+  const c = JSON.parse(raw);
+  READONLY = true;
+  setNetState(`offline · cached ${new Date(c.at).toLocaleString()}`);
+  document.getElementById("gate").classList.remove("show");
+  applyData(c.payload); resize();
+});
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  if (!confirm("Sign out?")) return;
+  await sb.auth.signOut();
+  location.reload();
+});
+
+// ---------- bulk import / snapshot export ----------
+function openImport() {
+  document.getElementById("importModal").classList.add("show");
+}
+function closeImport() {
+  document.getElementById("importModal").classList.remove("show");
+}
+document.getElementById("importBtn").addEventListener("click", openImport);
+document.getElementById("impFile").addEventListener("change", async e => {
+  const f = e.target.files[0];
+  if (f) document.getElementById("impText").value = await f.text();
+});
+// Curated batches use "s"/"e" date strings; snapshots are already parsed.
+function normalizeImport(doc) {
+  const out = Object.assign({}, doc);
+  out.events = (doc.events || []).map(ev => {
+    if (ev.se) return ev;
+    const st = parseDateStr(ev.s || "");
+    if (!st) throw new Error(`Could not parse date '${ev.s}' for “${ev.t}”`);
+    const en = ev.e ? parseDateStr(ev.e) : null;
+    if (ev.e && !en) throw new Error(`Could not parse end '${ev.e}' for “${ev.t}”`);
+    const o = Object.assign({}, ev, {
+      se: st.se, sl: st.sl, sp: st.sp,
+      ee: en ? en.se : st.se, el: en ? en.sl : st.sl, ep: en ? en.sp : st.sp,
+      span: !!en });
+    if (!o.dar && st.dar) o.dar = st.dar;
+    delete o.s; delete o.e;
+    return o;
+  });
+  out.excerpts = (doc.excerpts || []).map(x => {
+    if (x.se) return x;
+    const st = parseDateStr(x.s || "");
+    if (!st) throw new Error(`Could not parse date '${x.s}' for excerpt on “${x.t}”`);
+    const o = Object.assign({}, x, { se: st.se }); delete o.s;
+    return o;
+  });
+  return out;
+}
+async function runImport() {
+  if (offlineGuard()) return;
+  const log = document.getElementById("impLog");
+  const write = m => { log.textContent += m + "\n"; };
+  log.textContent = "";
+  let doc, norm;
+  try { doc = JSON.parse(document.getElementById("impText").value); }
+  catch (e) { write("Not valid JSON: " + e.message); return; }
+  try { norm = normalizeImport(doc); }
+  catch (e) { write(e.message); return; }
+  const events = norm.events || [], excerpts = norm.excerpts || [];
+  write(`Parsed ${events.length} events, ${excerpts.length} excerpts. Importing…`);
+  const CHUNK = 60;
+  let added = 0, skipped = 0, xsaved = 0, unmatched = [];
+  try {
+    // first call carries reference data (lanes, sources, persons, works, …)
+    let r = await sb.rpc("import_data",
+      { p: Object.assign({}, norm, { events: events.slice(0, CHUNK), excerpts: [] }) });
+    if (r.error) throw r.error;
+    added += r.data.events_added; skipped += r.data.events_skipped;
+    for (let i = CHUNK; i < events.length; i += CHUNK) {
+      r = await sb.rpc("import_data",
+        { p: { events: events.slice(i, i + CHUNK) } });
+      if (r.error) throw r.error;
+      added += r.data.events_added; skipped += r.data.events_skipped;
+      write(`  … ${Math.min(i + CHUNK, events.length)} / ${events.length}`);
+    }
+    // excerpts attach to existing events, so they go after all events
+    for (let i = 0; i < excerpts.length; i += CHUNK) {
+      r = await sb.rpc("import_data", { p: { excerpts: excerpts.slice(i, i + CHUNK) } });
+      if (r.error) throw r.error;
+      xsaved += r.data.excerpts_saved || 0;
+      unmatched = unmatched.concat(r.data.excerpts_unmatched || []);
+    }
+  } catch (e) { write("Import failed: " + (e.message || e)); return; }
+  write(`Done — ${added} added, ${skipped} already present.`);
+  if (excerpts.length) write(`Excerpts — ${xsaved} saved.`);
+  if (unmatched.length) write(`No matching event for: ${unmatched.join("; ")}`);
+  await refetchAll(null);
+}
+document.getElementById("impRun").addEventListener("click", runImport);
+
+async function exportSnapshot() {
+  if (READONLY) { alert("Offline — reconnect to export a fresh snapshot."); return; }
+  const { data, error } = await sb.rpc("export_snapshot");
+  if (error) { alert(error.message); return; }
+  const blob = new Blob([JSON.stringify(data, null, 1)],
+                        { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `puritan-timeline-snapshot-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(a.href);
+}
+document.getElementById("exportBtn").addEventListener("click", exportSnapshot);
+
+// ---------- boot ----------
+window.addEventListener("resize", resize);
+if ("serviceWorker" in navigator)
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+(async () => {
+  const cfg = window.PT_CONFIG;
+  if (!cfg || !cfg.url || cfg.url.includes("YOUR-")) {
+    showGate("config.js still has placeholder values — add your Supabase URL and anon key.");
+    return;
+  }
+  // all tables and functions live in the `timeline` schema, not `public`
+  sb = window.supabase.createClient(cfg.url, cfg.anonKey,
+    { db: { schema: "timeline" } });
+  let session = null;
+  try { session = (await sb.auth.getSession()).data.session; } catch (e) {}
+  if (session) startApp(); else showGate();
+})();
+</script>
+</body>
+</html>
