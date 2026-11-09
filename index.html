@@ -44,8 +44,20 @@
   #searchResults .yr { color: var(--muted); font-size: 12px; margin-right: 6px; }
   aside {
     background: var(--panel); border-right: 1px solid var(--line);
-    padding: 12px; overflow-y: auto;
+    padding: 12px; overflow: hidden; display: flex; flex-direction: column; min-height: 0;
   }
+  aside details.sec { flex: none; margin-bottom: 8px; }
+  aside details.sec > summary { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); font-weight: 600; cursor: pointer; padding: 4px 0; user-select: none;
+    list-style: none; }
+  aside details.sec > summary::-webkit-details-marker { display: none; }
+  aside details.sec > summary::before { content: "▸"; display: inline-block; width: 12px;
+    transition: transform .12s; }
+  aside details.sec[open] > summary::before { transform: rotate(90deg); }
+  aside .secNote { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  aside .subh { font-size: 11.5px; color: var(--muted); margin: 6px 0 3px; }
+  aside details.sec.grow[open] { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 140px; }
+  aside details.sec.grow[open] #personToggles { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
   aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
              color: var(--muted); margin: 14px 0 6px; }
   aside h2:first-child { margin-top: 0; }
@@ -249,40 +261,37 @@
 </header>
 
 <aside>
-  <h2>Lanes</h2>
-  <div id="laneToggles"></div>
-  <h2>Detail level</h2>
-  <select id="weightSel">
-    <option value="auto" selected>Auto (by zoom)</option>
-    <option value="3">Major events only</option>
-    <option value="2">Major + normal</option>
-    <option value="1">Everything</option>
-  </select>
-  <h2>Tag filter</h2>
-  <select id="tagSel"><option value="">— all tags —</option></select>
-  <h2>Confidence</h2>
-  <label class="small"><input type="checkbox" id="hideDisputed">
-    Hide disputed / traditional</label>
-  <h2>Data strip key</h2>
-  <div id="stripKey"></div>
-  <h2>Lives — people</h2>
-  <div style="display:flex; gap:6px; margin-bottom:5px">
-    <button id="pAll" style="padding:2px 8px; font-size:12px">All</button>
-    <button id="pNone" style="padding:2px 8px; font-size:12px">None</button>
-  </div>
-  <select id="grpSel" style="width:100%; margin-bottom:4px"
-          title="People groups"><option value="">— groups —</option></select>
-  <div style="display:flex; gap:4px; margin-bottom:6px; flex-wrap:wrap">
-    <button id="gOnly" style="padding:2px 7px; font-size:12px"
-            title="Show only this group's people">Only</button>
-    <button id="gAdd" style="padding:2px 7px; font-size:12px"
-            title="Also show this group's people">+ Add</button>
-    <button id="gHide" style="padding:2px 7px; font-size:12px"
-            title="Hide this group's people">− Hide</button>
-    <button id="gManage" style="padding:2px 7px; font-size:12px; margin-left:auto"
-            title="Create, edit or delete groups">Manage…</button>
-  </div>
-  <div id="personToggles" style="max-height:240px; overflow-y:auto"></div>
+  <details class="sec" data-sec="lanes" open><summary>Lanes</summary>
+    <div id="laneToggles"></div></details>
+  <details class="sec" data-sec="filters"><summary>Filters <span class="secNote" id="filtNote"></span></summary>
+    <div class="subh">Detail level</div>
+    <select id="weightSel">
+      <option value="auto" selected>Auto (by zoom)</option>
+      <option value="3">Major events only</option>
+      <option value="2">Major + normal</option>
+      <option value="1">Everything</option>
+    </select>
+    <div class="subh">Tag filter</div>
+    <select id="tagSel"><option value="">— all tags —</option></select>
+    <label class="small"><input type="checkbox" id="hideDisputed">
+      Hide disputed / traditional</label></details>
+  <details class="sec" data-sec="strip"><summary>Data strip key</summary>
+    <div id="stripKey"></div></details>
+  <details class="sec grow" data-sec="people" open><summary>Lives — people
+      <span class="secNote" id="peopleNote"></span></summary>
+    <select id="grpSel" style="width:100%; margin-bottom:4px"
+            title="Choosing a group shows only that group's people"><option value="">— show a group —</option></select>
+    <div style="display:flex; gap:4px; margin-bottom:6px; flex-wrap:wrap">
+      <button id="pAll" style="padding:2px 7px; font-size:12px" title="Show everyone">All</button>
+      <button id="pNone" style="padding:2px 7px; font-size:12px" title="Show no one">None</button>
+      <button id="gAdd" style="padding:2px 7px; font-size:12px"
+              title="Add the selected group to whoever is shown">+ Add</button>
+      <button id="gHide" style="padding:2px 7px; font-size:12px"
+              title="Remove the selected group's people">− Hide</button>
+      <button id="gManage" style="padding:2px 7px; font-size:12px; margin-left:auto"
+              title="Create, edit or delete groups">Manage…</button>
+    </div>
+    <div id="personToggles"></div></details>
 </aside>
 
 <div id="main">
@@ -396,6 +405,7 @@ let DATA = null, LANES = [], EVENTS = [];
 let view = { t0: 1545, t1: 1717 };
 const FULL = { t0: 1545, t1: 1717 };
 let activeLanes = new Set(), weightMode = "auto", hideDisputed = false, tagFilter = "";
+let LIVES_SUBJECTS = new Set();
 let focusPerson = "", selected = null;
 let hiddenPersons = new Set(), livesLaneId = 0, personalLaneId = 0;
 let hitRects = [];   // {x0,y0,x1,y1,ev}
@@ -466,7 +476,21 @@ function clampScroll(v) {
   const inner = vh() - AXIS_H;
   return Math.max(0, Math.min(v, Math.max(0, contentH - inner)));
 }
+function sideNotes() {
+  const f = [];
+  if (weightMode !== "auto") f.push({3:"major only",2:"major + normal",1:"everything"}[weightMode] || "");
+  if (tagFilter) f.push("tag: " + tagFilter);
+  if (hideDisputed) f.push("no disputed");
+  const fn = document.getElementById("filtNote");
+  if (fn) fn.textContent = f.length ? "· " + f.join(", ") : "";
+  const pn = document.getElementById("peopleNote");
+  if (pn && LIVES_SUBJECTS.size) {
+    const shown = [...LIVES_SUBJECTS].filter(id => !hiddenPersons.has(id)).length;
+    pn.textContent = `· ${shown} of ${LIVES_SUBJECTS.size}`;
+  }
+}
 function render() {
+  sideNotes();
   if (!DATA) return;
   const W = vw(), H = vh();
   ctx.clearRect(0, 0, W, H);
@@ -1375,7 +1399,7 @@ function printReport() {
 }
 
 // ---------- people groups ----------
-let LIVES_SUBJECTS = new Set();
+// LIVES_SUBJECTS declared with the other view state above
 const REIGNS = [
   ["Mary I", 1553, 1558], ["Elizabeth I", 1558, 1603], ["James I", 1603, 1625],
   ["Charles I", 1625, 1649], ["Interregnum", 1649, 1660], ["Charles II", 1660, 1685],
@@ -1586,7 +1610,11 @@ function applyData(data) {
     pt.querySelectorAll("input").forEach(i => i.checked = !hiddenPersons.has(i.dataset.pid));
     render(); refreshReport();
   };
-  document.getElementById("gOnly").onclick = () => applyGroup("only");
+  // a manual tick, All or None means the list no longer matches one group
+  pt.addEventListener("change", () => { gs.value = ""; });
+  document.getElementById("pAll").addEventListener("click", () => { gs.value = ""; });
+  document.getElementById("pNone").addEventListener("click", () => { gs.value = ""; });
+  gs.onchange = () => { if (gs.value) applyGroup("only"); };
   document.getElementById("gAdd").onclick = () => applyGroup("add");
   document.getElementById("gHide").onclick = () => applyGroup("hide");
 
@@ -1874,6 +1902,13 @@ if ("serviceWorker" in navigator)
   try { session = (await sb.auth.getSession()).data.session; } catch (e) {}
   if (session) startApp(); else showGate();
 })();
+
+// sidebar sections: remember open/closed per section
+document.querySelectorAll("aside details.sec").forEach(d => {
+  const k = "ptl-sec-" + d.dataset.sec;
+  try { const v = localStorage.getItem(k); if (v !== null) d.open = v === "1"; } catch (e) {}
+  d.addEventListener("toggle", () => { try { localStorage.setItem(k, d.open ? "1" : "0"); } catch (e) {} });
+});
 </script>
 </body>
 </html>
