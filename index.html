@@ -837,8 +837,10 @@ function workHTML(w) {
     : `<div class="xcerpt ai"><span class="ailabel">AI Summary.</span> ${esc(w.summary)}
          ${w.summary_basis ? `<div class="xcite">based on ${esc(w.summary_basis)}</div>` : ""}</div>`);
   const links = [];
-  if (w.text_url) links.push(`<a href="${esc(w.text_url)}" target="_blank" rel="noopener">Read the text ↗</a>`
+  if (w.text_url) links.push(`<a href="${esc(w.text_url)}" target="_blank" rel="noopener">${w.modern_url ? "Original edition" : "Read the text"} ↗</a>`
     + (w.text_label ? ` <span style="color:var(--muted)">(${esc(w.text_label)})</span>` : ""));
+  if (w.modern_url) links.push(`<a href="${esc(w.modern_url)}" target="_blank" rel="noopener">Modern edition ↗</a>`
+    + (w.modern_label ? ` <span style="color:var(--muted)">(${esc(w.modern_label)})</span>` : ""));
   if (w.estc_id) links.push(`<span style="color:var(--muted)">${esc(w.estc_id)}</span>`);
   if (links.length) body.push(`<div>${links.join(" · ")}</div>`);
   const head = `${w.year ? `<span class="wyear">${w.year}</span>` : ""}${esc(w.title)}`
