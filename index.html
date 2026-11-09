@@ -787,7 +787,11 @@ function showDetail(ev) {
   const authored = ev.lane === livesLaneId
     ? ev.people.filter(p => p.role === "subject").map(p => {
         const ws = worksBy(p.id);
-        return ws.length ? `<h4>Works by ${esc(p.n)} (${ws.length})</h4>${ws.map(workHTML).join("")}` : "";
+        const wa = worksAbout(p.id);
+        return (ws.length ? `<h4>Works by ${esc(p.n)} (${ws.length})</h4>${ws.map(w => workHTML(w)).join("")}` : "")
+          + (wa.length ? `<h4>Works about ${esc(p.n)} (${wa.length})</h4>
+              <div style="color:var(--muted);font-size:12px;margin:-2px 0 4px">Not by ${esc(p.n)}: written about him, or falsely attributed to him.</div>
+              ${wa.map(w => workHTML(w, (w.related.find(r => r.id === p.id) || {}).role)).join("")}` : "");
       }).join("") : "";
   const tags = ev.tags.map(t => `<span class="badge">${esc(t)}</span>`).join(" ");
   const sources = ev.sources.map(s =>
@@ -827,7 +831,12 @@ function worksBy(pid) {
   return (DATA.works || []).filter(w => (w.authors || []).includes(pid))
     .sort((a, b) => (a.year || 9999) - (b.year || 9999) || a.title.localeCompare(b.title));
 }
-function workHTML(w) {
+// Works linked to a person in some role other than author (about him, attributed to him)
+function worksAbout(pid) {
+  return (DATA.works || []).filter(w => (w.related || []).some(r => r.id === pid))
+    .sort((a, b) => (a.year || 9999) - (b.year || 9999) || a.title.localeCompare(b.title));
+}
+function workHTML(w, relRole) {
   const body = [];
   if (w.full_title) body.push(`<div class="wlbl">Title page</div>
     <div class="xcerpt"><blockquote>${esc(w.full_title)}</blockquote></div>`);
@@ -844,7 +853,8 @@ function workHTML(w) {
   if (w.estc_id) links.push(`<span style="color:var(--muted)">${esc(w.estc_id)}</span>`);
   if (links.length) body.push(`<div>${links.join(" · ")}</div>`);
   const head = `${w.year ? `<span class="wyear">${w.year}</span>` : ""}${esc(w.title)}`
-    + (w.genre ? ` <span class="wgenre">— ${esc(w.genre)}</span>` : "");
+    + (w.genre ? ` <span class="wgenre">— ${esc(w.genre)}</span>` : "")
+    + (relRole ? ` <span class="wgenre">[${esc(relRole)}]</span>` : "");
   return body.length
     ? `<details class="work"><summary>${head}</summary><div class="wbody">${body.join("")}</div></details>`
     : `<div class="work" style="padding:4px 0 4px 12px">${head}</div>`;
