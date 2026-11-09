@@ -453,9 +453,12 @@ function render() {
     if (lane.name === "Personal")
       evs = evs.filter(e => e.people.some(p => p.id === focusPerson));
     const foc = e => focusPerson && e.people.some(p => p.id === focusPerson) ? 1 : 0;
-    const shown = evs.filter(e => e.w >= mw || foc(e))
+    // Lives lane: the sidebar person checkboxes decide what shows, not the
+    // zoom-driven detail level, so every ticked person's lifespan is drawn.
+    const keep = e => lane.id === livesLaneId || e.w >= mw || foc(e);
+    const shown = evs.filter(keep)
       .sort((a, b) => foc(b) - foc(a) || isoY(a.se) - isoY(b.se));
-    const hidden = evs.filter(e => e.w < mw && !foc(e) && inView(e));
+    const hidden = evs.filter(e => !keep(e) && inView(e));
 
     // greedy row packing
     ctx.font = "12px -apple-system, sans-serif";
