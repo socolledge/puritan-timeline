@@ -44,7 +44,7 @@
   #searchResults .yr { color: var(--muted); font-size: 12px; margin-right: 6px; }
   aside {
     background: var(--panel); border-right: 1px solid var(--line);
-    padding: 12px; overflow: hidden; display: flex; flex-direction: column; min-height: 0;
+    padding: 12px; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; min-height: 0;
   }
   aside details.sec { flex: none; margin-bottom: 8px; }
   aside details.sec > summary { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
@@ -1592,6 +1592,7 @@ function applyData(data) {
     if (e.lane === livesLaneId)
       for (const p of e.people) if (p.role === "subject") subjects.add(p.id);
   const pt = document.getElementById("personToggles");
+  requestAnimationFrame(() => typeof fitPeople === "function" && fitPeople());
   pt.innerHTML = data.persons.filter(p => subjects.has(p.id)).map(p =>
     `<label class="laneRow"><input type="checkbox" data-pid="${p.id}"
      ${hiddenPersons.has(p.id) ? "" : "checked"}>${esc(p.n)}</label>`).join("");
@@ -1927,8 +1928,21 @@ if ("serviceWorker" in navigator)
 document.querySelectorAll("aside details.sec").forEach(d => {
   const k = "ptl-sec-" + d.dataset.sec;
   try { const v = localStorage.getItem(k); if (v !== null) d.open = v === "1"; } catch (e) {}
-  d.addEventListener("toggle", () => { try { localStorage.setItem(k, d.open ? "1" : "0"); } catch (e) {} });
+  d.addEventListener("toggle", () => { try { localStorage.setItem(k, d.open ? "1" : "0"); } catch (e) {} fitPeople(); });
 });
+// The people list lives inside a <details>, where browsers ignore flex
+// sizing, so give it an explicit height filling the rest of the sidebar
+// and let it scroll on its own.
+function fitPeople() {
+  const pt = document.getElementById("personToggles");
+  const side = document.querySelector("aside");
+  if (!pt || !side || !pt.offsetParent) return;
+  const room = side.getBoundingClientRect().bottom - pt.getBoundingClientRect().top - 12;
+  pt.style.maxHeight = Math.max(160, Math.floor(room)) + "px";
+  pt.style.overflowY = "auto";
+}
+window.addEventListener("resize", fitPeople);
+requestAnimationFrame(fitPeople);
 </script>
 </body>
 </html>
