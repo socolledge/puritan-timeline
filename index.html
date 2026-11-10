@@ -406,8 +406,9 @@ let view = { t0: 1545, t1: 1717 };
 const FULL = { t0: 1545, t1: 1717 };
 let activeLanes = new Set(), weightMode = "auto", hideDisputed = false, tagFilter = "";
 let LIVES_SUBJECTS = new Set();
+const PUBS_ALL_ZOOM_MAX = 10;   // ticked people at or below which all their works show at any zoom
 let focusPerson = "", selected = null;
-let hiddenPersons = new Set(), livesLaneId = 0, personalLaneId = 0;
+let hiddenPersons = new Set(), livesLaneId = 0, personalLaneId = 0, pubsLaneId = 0;
 let hitRects = [];   // {x0,y0,x1,y1,ev}
 const cv = document.getElementById("cv");
 let ctx = cv.getContext("2d");   // reassigned temporarily for print snapshots
@@ -456,6 +457,13 @@ function passesStatic(ev) {
   // Lives-band person toggles hide that person's lifespan bar only.
   if (hiddenPersons.size && ev.lane === livesLaneId
       && ev.people.some(p => hiddenPersons.has(p.id))) return false;
+  // Publications follow the Lives selection: once any person is unticked,
+  // show only works with at least one ticked Lives author (or the focused
+  // person's). Works by nobody, or only by people without a Lives bar,
+  // drop out while a selection is active.
+  if (hiddenPersons.size && ev.lane === pubsLaneId
+      && !ev.people.some(p => p.id === focusPerson
+           || (LIVES_SUBJECTS.has(p.id) && !hiddenPersons.has(p.id)))) return false;
   return true;
 }
 function inView(ev) { return isoY(ev.se) <= view.t1 && isoY(ev.el) >= view.t0; }
@@ -520,7 +528,12 @@ function render() {
     const foc = e => focusPerson && e.people.some(p => p.id === focusPerson) ? 1 : 0;
     // Lives lane: the sidebar person checkboxes decide what shows, not the
     // zoom-driven detail level, so every ticked person's lifespan is drawn.
-    const keep = e => lane.id === livesLaneId || e.w >= mw || foc(e);
+    // Publications: with a small selection (10 or fewer people ticked),
+    // show every selected author's works whatever the zoom level.
+    const fewPeople = hiddenPersons.size
+      && LIVES_SUBJECTS.size - hiddenPersons.size <= PUBS_ALL_ZOOM_MAX;
+    const keep = e => lane.id === livesLaneId || e.w >= mw || foc(e)
+      || (fewPeople && lane.id === pubsLaneId);
     const shown = evs.filter(keep)
       .sort((a, b) => foc(b) - foc(a) || isoY(a.se) - isoY(b.se));
     const hidden = evs.filter(e => !keep(e) && inView(e));
@@ -550,7 +563,13 @@ function render() {
     ctx.fillRect(0, y + 4, 3, laneH - 8);
     ctx.font = "600 11px -apple-system, sans-serif";
     ctx.fillStyle = "#8a8071";
-    ctx.fillText(lane.name.toUpperCase(), 10, y + 14);
+    let head = lane.name.toUpperCase();
+    // Publications header shows how many works pass the people selection.
+    if (lane.id === pubsLaneId && hiddenPersons.size) {
+      const total = EVENTS.filter(e => e.lane === pubsLaneId).length;
+      head += `  (${evs.length.toLocaleString()} of ${total.toLocaleString()})`;
+    }
+    ctx.fillText(head, 10, y + 14);
 
     // data strips as bands at lane bottom: numeric series get a blue-red
     // heat scale; categorical series (harvest quality) a fixed palette.
@@ -1566,6 +1585,7 @@ function applyData(data) {
 
   // Lives-band person toggles (affect timeline and report alike)
   livesLaneId = (LANES.find(l => l.name === "Lives") || {}).id || 0;
+  pubsLaneId = (LANES.find(l => l.name === "Publications") || {}).id || 0;
   personalLaneId = (LANES.find(l => l.name === "Personal") || {}).id || 0;
   const subjects = new Set();
   for (const e of EVENTS)
