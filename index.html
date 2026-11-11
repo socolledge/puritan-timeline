@@ -2074,7 +2074,9 @@ function prItems(pid) {
     items.push({ side: personal ? "L" : "R", kind: personal ? "personal" : "event", ev: e, mine });
   }
   // Spans already running when the range opens sit at its start, marked "in progress".
-  for (const it of items) { it.k = it.ev.se < lo ? lo : it.ev.se; it.carry = it.ev.se < lo; }
+  // Circa dates sort by their middle year, not the start of the ±3-year window.
+  const mid = e => e.sp === "circa" ? `${String(Math.round((isoY(e.se) + isoY(e.sl)) / 2)).padStart(4, "0")}-07-01` : e.se;
+  for (const it of items) { const k = mid(it.ev); it.carry = k < lo; it.k = it.carry ? lo : k; }
   items.sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : a.side < b.side ? -1 : 1));
   return items;
 }
