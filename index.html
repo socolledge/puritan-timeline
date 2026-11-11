@@ -246,6 +246,7 @@
   .pr-head h2 { font-size: 22px; font-weight: 600; margin: 0 0 2px; }
   .pr-head .life { color: var(--muted); margin-bottom: 8px; }
   .pr-head .bio { line-height: 1.55; }
+  .pr-head > div:first-child { flex: none; }
   .pr-head .credit { font-size: 10.5px; color: var(--muted); margin-top: 4px; max-width: 120px; }
   .pr-note { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; }
   .pr-cols { display: grid; grid-template-columns: minmax(0,44fr) 76px minmax(0,48fr);
@@ -285,7 +286,8 @@
     #printArea .pr-print + .pr-print { break-before: page; page-break-before: always; }
     #printArea .pr-card { font-size: 9.5pt; }
     #printArea .pr-card details { display: none; }
-    #printArea .pr-head img { width: 1.1in; max-height: none; border: 1px solid #ddd; margin: 0; }
+    #printArea .pr-head > div:first-child { flex: none; }
+    #printArea .pr-head img { width: 1.1in !important; height: auto; max-height: none; border: 1px solid #ddd; margin: 0; }
     #printArea a { color: #1d4ed8; }
   }
   /* ---- print / PDF ---- */
@@ -2072,6 +2074,20 @@ function prItems(pid) {
     if (!PR.afterDeath && e.se > death) continue;
     const personal = e.lane === personalLaneId;
     items.push({ side: personal ? "L" : "R", kind: personal ? "personal" : "event", ev: e, mine });
+  }
+  // Birth and death from the Lives entry, unless the Personal lane already records them.
+  if (life && activeLanes.has(personalLaneId)) {
+    const name = (life.people.find(p => p.role === "subject") || {}).n || life.t;
+    const own = EVENTS.filter(e => e.lane === personalLaneId && e.people.some(p => p.id === pid));
+    const has = re => own.some(e => re.test(e.t));
+    const mk = (t, se, sl, sp) => ({ t, se, sl, el: sl, ee: se, sp, ep: sp, span: false, lane: personalLaneId,
+      conf: life.conf, d: null, w: 3, tags: [], works: [], people: life.people,
+      x: (life.x || []).filter(x => x.kind !== "ai_summary"), sources: life.sources });
+    const born = mk(`Birth of ${name}`, life.se, life.sl, life.sp);
+    const died = mk(`Death of ${name}`, life.ee, life.el, life.ep);
+    born.d = life.sp === "floruit" ? "Birth date unknown; first recorded activity." : null;
+    if (!has(/\b(born|birth|baptis)/i) && inR(born) && life.sp !== "floruit") items.push({ side: "L", kind: "personal", ev: born });
+    if (!has(/\b(dies|died|death|buried)\b/i) && inR(died)) items.push({ side: "L", kind: "personal", ev: died });
   }
   // Spans already running when the range opens sit at its start, marked "in progress".
   // Circa dates sort by their middle year, not the start of the ±3-year window.
