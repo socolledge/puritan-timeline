@@ -2073,7 +2073,9 @@ function prItems(pid) {
     const personal = e.lane === personalLaneId;
     items.push({ side: personal ? "L" : "R", kind: personal ? "personal" : "event", ev: e, mine });
   }
-  items.sort((a, b) => (a.ev.se < b.ev.se ? -1 : a.ev.se > b.ev.se ? 1 : a.side < b.side ? -1 : 1));
+  // Spans already running when the range opens sit at its start, marked "in progress".
+  for (const it of items) { it.k = it.ev.se < lo ? lo : it.ev.se; it.carry = it.ev.se < lo; }
+  items.sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : a.side < b.side ? -1 : 1));
   return items;
 }
 function prWorkCard(it) {
@@ -2092,7 +2094,7 @@ function prEventCard(it) {
   const e = it.ev, lane = LANES.find(l => l.id === e.lane) || { name: "", color: "#888" };
   const summ = prSummary(e), src = prSourceLine(e);
   return `<div class="pr-card"><div class="lane" style="color:${lane.color}">${esc(lane.name)}</div>
-    <div class="d">${esc(evDateLabel(e))}</div><div class="t">${esc(e.t)}</div>
+    <div class="d">${esc(evDateLabel(e))}${it.carry ? ' <span style="color:var(--muted);font-weight:400">· in progress</span>' : ""}</div><div class="t">${esc(e.t)}</div>
     ${summ ? `<div>${esc(summ)}</div>` : ""}${src ? `<div class="src">${src}</div>` : ""}${prQuote(e)}</div>`;
 }
 function prHead(pid) {
@@ -2117,10 +2119,10 @@ function prGraphic(pid, items) {
   items = PR.afterDeath ? items : items.filter(i => !i.post);
   for (const it of items) {
     const last = rows[rows.length - 1];
-    if (last && !last[it.side] && last.year === it.ev.se.slice(0, 4)) last[it.side] = it;
-    else rows.push({ year: it.ev.se.slice(0, 4), [it.side]: it });
+    if (last && !last[it.side] && last.year === it.k.slice(0, 4)) last[it.side] = it;
+    else rows.push({ year: it.k.slice(0, 4), [it.side]: it });
   }
-  const yrLabel = r => { const it = r.L || r.R; return it.ev.sp === "circa" ? "c. " + Math.round((isoY(it.ev.se) + isoY(it.ev.sl)) / 2) : r.year.replace(/^0+/, ""); };
+  const yrLabel = r => { const it = r.L || r.R; if (it.carry) return r.year.replace(/^0+/, ""); return it.ev.sp === "circa" ? "c. " + Math.round((isoY(it.ev.se) + isoY(it.ev.sl)) / 2) : r.year.replace(/^0+/, ""); };
   const card = it => it.kind === "work" ? prWorkCard(it) : prEventCard(it);
   const postHTML = post.length ? `<div class="pr-post"><h3>Published after death (${post.length})</h3>${post.map(prWorkCard).join("")}</div>` : "";
   return `<div class="pr-cols"><div>Personal life · <span style="margin-left:34px">works</span></div><div></div><div>Events</div></div>` + rows.map(r =>
