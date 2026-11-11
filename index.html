@@ -2023,7 +2023,10 @@ function prNorm(v, end) {          // "1650" | "1650-03" | "1650-03-15" -> ISO b
 function prRange(pid) {
   const life = prLife(pid);
   const lo = prNorm(PR.from, false) || (life ? life.se : "1550-01-01");
-  const hi = prNorm(PR.to, true) || (life ? life.el : "1714-12-31");
+  // Default end: death, or the last publication if works appeared posthumously.
+  let lastPub = "";
+  for (const e of EVENTS) if (e.lane === pubsLaneId && e.people.some(p => p.id === pid) && e.el > lastPub) lastPub = e.el;
+  const hi = prNorm(PR.to, true) || [life ? life.el : "1714-12-31", lastPub].sort().pop();
   return lo <= hi ? [lo, hi] : [hi, lo];
 }
 function prSummary(ev) {
@@ -2092,7 +2095,7 @@ function prHead(pid) {
     : `<div class="ini">${esc(ini)}</div>`;
   const ai = life && (life.x || []).find(x => x.kind === "ai_summary");
   const [lo, hi] = prRange(pid);
-  const rng = (life && lo === life.se && hi === life.el) ? "" : ` · report covers ${lo.replace(/-01-01$/, "")} to ${hi.replace(/-12-31$/, "")}`;
+  const rng = (life && !PR.from && !PR.to) ? (hi > life.el ? ` · works to ${hi.slice(0, 4)} included` : "") : ` · report covers ${lo.replace(/-01-01$/, "")} to ${hi.replace(/-12-31$/, "")}`;
   return `<div class="pr-head">${img}<div><h2>${esc(p.n)}</h2>
     <div class="life">${life ? esc(evDateLabel(life)) : ""}${rng}</div>
     ${life && life.d ? `<div class="bio">${esc(life.d)}</div>` : ""}
