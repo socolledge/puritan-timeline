@@ -2020,6 +2020,7 @@ if ("serviceWorker" in navigator)
 
 
 // ---------- person report (author view, graphic + text, PDF) ----------
+// (rev 2026-11-11b)
 const PR = { view: "graphic", works: "all", afterDeath: false, textGroup: "lane", from: "", to: "", paper: "letter", content: "both", pid: "" };
 function prLife(pid) {
   return EVENTS.find(e => e.lane === livesLaneId && e.people.some(p => p.id === pid && p.role === "subject"));
