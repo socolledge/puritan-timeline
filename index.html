@@ -2079,7 +2079,11 @@ function prItems(pid) {
   if (life && activeLanes.has(personalLaneId)) {
     const name = (life.people.find(p => p.role === "subject") || {}).n || life.t;
     const own = EVENTS.filter(e => e.lane === personalLaneId && e.people.some(p => p.id === pid));
-    const has = re => own.some(e => re.test(e.t));
+    // Only the subject's own birth/death count; relatives' events (wife, mother, son...) don't.
+    const REL = /\b(son|sons|daughter|child|children|wife|husband|mother|father|brother|sister|infant|stepson)\b/i;
+    const parts = name.split(/\s+/), first = parts[0], last = parts[parts.length - 1];
+    const aboutSubject = t => t.includes(first) || t.startsWith(last + ":");
+    const has = re => own.some(e => re.test(e.t) && !REL.test(e.t) && aboutSubject(e.t));
     const mk = (t, se, sl, sp) => ({ t, se, sl, el: sl, ee: se, sp, ep: sp, span: false, lane: personalLaneId,
       conf: life.conf, d: null, w: 3, tags: [], works: [], people: life.people,
       x: (life.x || []).filter(x => x.kind !== "ai_summary"), sources: life.sources });
