@@ -2035,7 +2035,10 @@ function prNorm(v, end) {          // "1650" | "1650-03" | "1650-03-15" -> ISO b
 }
 function prRange(pid) {
   const life = prLife(pid);
-  const lo = prNorm(PR.from, false) || (life ? life.se : "1550-01-01");
+  // A circa birth is stored as a ±3-year window; start the report at its middle year, not its earliest edge.
+  const lifeStart = !life ? "1550-01-01" : life.sp === "circa"
+    ? `${String(Math.round((isoY(life.se) + isoY(life.sl)) / 2)).padStart(4, "0")}-01-01` : life.se;
+  const lo = prNorm(PR.from, false) || lifeStart;
   // Default end: death, or the last publication if works appeared posthumously.
   let lastPub = "";
   for (const e of EVENTS) if (e.lane === pubsLaneId && e.people.some(p => p.id === pid) && e.el > lastPub) lastPub = e.el;
