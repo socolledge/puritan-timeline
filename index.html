@@ -226,6 +226,63 @@
             color: var(--muted); margin-top: 12px; max-height: 220px;
             overflow-y: auto; }
 
+
+  /* ---- person report (author view) ---- */
+  #preport { position: fixed; top: 52px; left: 218px; right: 0; bottom: 0; z-index: 40;
+    background: var(--bg, #faf8f4); overflow-y: auto; display: none; }
+  #preport.open { display: block; }
+  #preport .pbar { position: sticky; top: 0; z-index: 2; background: var(--panel, #fff);
+    border-bottom: 1px solid var(--line); padding: 8px 16px; display: flex; flex-wrap: wrap;
+    gap: 8px 14px; align-items: center; font-size: 13px; }
+  #preport .pbar input[type=text] { width: 96px; }
+  #preport .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  #preport .seg button { border: 0; border-radius: 0; padding: 4px 10px; background: transparent; }
+  #preport .seg button.on { background: var(--accent); color: #fff; }
+  #preport .pbody { max-width: 980px; margin: 0 auto; padding: 22px 28px 60px; }
+  .pr-head { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 26px; }
+  .pr-head img { width: 120px; border-radius: 6px; border: 1px solid var(--line); }
+  .pr-head .ini { width: 72px; height: 72px; border-radius: 50%; background: var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--muted); flex: none; }
+  .pr-head h2 { font-size: 22px; font-weight: 600; margin: 0 0 2px; }
+  .pr-head .life { color: var(--muted); margin-bottom: 8px; }
+  .pr-head .bio { line-height: 1.55; }
+  .pr-head .credit { font-size: 10.5px; color: var(--muted); margin-top: 4px; max-width: 120px; }
+  .pr-note { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; }
+  .pr-cols { display: grid; grid-template-columns: minmax(0,32fr) 76px minmax(0,60fr);
+    font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .pr-row { display: grid; grid-template-columns: minmax(0,32fr) 76px minmax(0,60fr);
+    break-inside: avoid; page-break-inside: avoid; }
+  .pr-spine { position: relative; background: linear-gradient(var(--muted), var(--muted)) no-repeat center / 1px 100%; }
+  .pr-spine .dot { position: absolute; top: 15px; left: 50%; width: 9px; height: 9px; margin-left: -4.5px;
+    border-radius: 50%; background: var(--accent); }
+  .pr-spine .yr { position: absolute; top: 26px; left: 0; right: 0; text-align: center; font-size: 11px;
+    color: var(--muted); background: var(--bg, #faf8f4); line-height: 1.3; }
+  .pr-cell { padding: 8px 0 14px; position: relative; }
+  .pr-card { position: relative; background: var(--panel, #fff); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 11px; font-size: 13px; line-height: 1.5; break-inside: avoid; page-break-inside: avoid; }
+  .pr-L .pr-card::after, .pr-R .pr-card::after { content: ""; position: absolute; top: 11px; height: 1px;
+    background: var(--muted); width: 38px; }
+  .pr-L .pr-card::after { right: -39px; }
+  .pr-R .pr-card::after { left: -39px; }
+  .pr-card .d { color: var(--accent); font-size: 12px; font-weight: 600; }
+  .pr-card .t { font-weight: 600; margin: 1px 0 3px; }
+  .pr-card .lane { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; }
+  .pr-card .src { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  .pr-card details { margin-top: 4px; font-size: 12px; }
+  .pr-card details summary { cursor: pointer; color: var(--muted); }
+  .pr-card blockquote { margin: 4px 0; padding-left: 8px; border-left: 2px solid var(--line); }
+  .pr-text h3 { font-size: 15px; margin: 22px 0 8px; break-after: avoid; page-break-after: avoid; }
+  .pr-text .ent { margin: 0 0 12px; break-inside: avoid; page-break-inside: avoid; font-size: 13px; line-height: 1.5; }
+  .pr-text .ent .d { color: var(--accent); font-weight: 600; margin-right: 6px; }
+  .pr-empty { color: var(--muted); padding: 20px 0; }
+  @media print {
+    #printArea .pr-print { font-size: 10pt; }
+    #printArea .pr-print + .pr-print { break-before: page; page-break-before: always; }
+    #printArea .pr-card { font-size: 9.5pt; }
+    #printArea .pr-card details { display: none; }
+    #printArea .pr-head img { width: 1.1in; max-height: none; border: 1px solid #ddd; margin: 0; }
+    #printArea a { color: #1d4ed8; }
+  }
   /* ---- print / PDF ---- */
   #printArea { display: none; }
   @media print {
@@ -257,6 +314,7 @@
   <span id="netState"></span>
   <div class="spacer"></div>
   <select id="personSel" title="Focus on a person"></select>
+  <button id="preportBtn" title="Report on the focused person" style="display:none">Person report</button>
   <button id="addBtn" title="Add a new event">+ Add event</button>
   <button id="reportBtn" title="Report for a date range">Report</button>
   <button id="importBtn" title="Bulk import JSON">Import</button>
@@ -909,6 +967,7 @@ function showDetail(ev) {
       text-transform:uppercase;letter-spacing:.05em">${esc(lane.name)}</div>
     ${portrait}
     <h3>${esc(ev.t)}</h3>
+    ${subj ? `<button style="margin:2px 0 6px" onclick="setFocus('${subj.id}'); openPersonReport()">Person report</button>` : ""}
     <div class="date">${esc(evDateLabel(ev))}</div>
     ${ev.dar ? `<div class="dar">as recorded: ${esc(ev.dar)}</div>` : ""}
     <div class="badges">${badges}${confBadge}</div>
@@ -987,6 +1046,8 @@ function closeDetail() { selected = null; detail.classList.remove("open");
 // ---------- focus, search, filters ----------
 function setFocus(pid) {
   focusPerson = pid;
+  const prb = document.getElementById("preportBtn"); if (prb) prb.style.display = pid ? "" : "none";
+  if (!pid && typeof closePersonReport === "function") closePersonReport();
   vScroll = 0;   // focused lanes float to the top — start there
   document.getElementById("personSel").value = pid;
   if (pid) {
@@ -1319,6 +1380,7 @@ function buildReport(opts) {
 }
 
 function refreshReport() {
+  if (typeof refreshPersonReport === 'function') refreshPersonReport();
   if (!reportEl.classList.contains("open")) return;
   document.getElementById("reportBody").innerHTML = buildReport();
   const evs = rangeEvents(), c = evs.filter(e => e.carry).length;
@@ -1943,6 +2005,180 @@ if ("serviceWorker" in navigator)
   if (session) startApp(); else showGate();
 })();
 
+
+// ---------- person report (author view, graphic + text, PDF) ----------
+const PR = { view: "graphic", works: "all", from: "", to: "", paper: "letter", content: "both", pid: "" };
+function prLife(pid) {
+  return EVENTS.find(e => e.lane === livesLaneId && e.people.some(p => p.id === pid && p.role === "subject"));
+}
+function prNorm(v, end) {          // "1650" | "1650-03" | "1650-03-15" -> ISO bound
+  const m = String(v || "").trim().match(/^(\d{3,4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?$/);
+  if (!m) return null;
+  const y = m[1].padStart(4, "0");
+  if (!m[2]) return end ? `${y}-12-31` : `${y}-01-01`;
+  const mo = m[2].padStart(2, "0");
+  if (!m[3]) return end ? `${y}-${mo}-${String(new Date(+y, +mo, 0).getDate()).padStart(2, "0")}` : `${y}-${mo}-01`;
+  return `${y}-${mo}-${m[3].padStart(2, "0")}`;
+}
+function prRange(pid) {
+  const life = prLife(pid);
+  const lo = prNorm(PR.from, false) || (life ? life.se : "1550-01-01");
+  const hi = prNorm(PR.to, true) || (life ? life.el : "1714-12-31");
+  return lo <= hi ? [lo, hi] : [hi, lo];
+}
+function prSummary(ev) {
+  const ai = (ev.x || []).find(x => x.kind === "ai_summary");
+  return ai ? ai.body : (ev.d || "");
+}
+function prSourceLine(ev) {
+  const x = (ev.x || []).find(x => x.url) ;
+  const s = ev.sources.find(s => s.url) || ev.sources[0];
+  if (x) return `${esc(x.ref)} · <a href="${esc(x.url)}" target="_blank" rel="noopener">${linkLabel(x.url)} ↗</a>`;
+  if (s) return s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.ref)} ↗</a>` : esc(s.ref);
+  return "";
+}
+function prQuote(ev) {
+  const q = (ev.x || []).find(x => x.kind !== "ai_summary");
+  return q ? `<details><summary>Source quote</summary><blockquote>${esc(q.body)}</blockquote>
+    <div class="src">— ${xcite(q)}</div></details>` : "";
+}
+function prItems(pid) {
+  const [lo, hi] = prRange(pid);
+  const inR = e => e.se <= hi && e.el >= lo;
+  const mw = weightMode === "auto" ? 2 : +weightMode;
+  const items = [];
+  if (activeLanes.has(pubsLaneId)) {
+    for (const e of EVENTS) {
+      if (e.lane !== pubsLaneId || !inR(e) || !e.people.some(p => p.id === pid)) continue;
+      if (PR.works === "major" && e.w < 2) continue;
+      const w = e.works.length ? workByTitle(e.works[0].title) : null;
+      items.push({ side: "L", ev: e, w });
+    }
+  }
+  for (const e of EVENTS) {
+    if (e.lane === pubsLaneId || e.lane === livesLaneId || !inR(e)) continue;
+    if (!activeLanes.has(e.lane) || !passesStatic(e)) continue;
+    const mine = e.people.some(p => p.id === pid);
+    if (e.lane === personalLaneId ? !mine : (!mine && e.w < mw)) continue;
+    items.push({ side: "R", ev: e, mine });
+  }
+  items.sort((a, b) => (a.ev.se < b.ev.se ? -1 : a.ev.se > b.ev.se ? 1 : a.side < b.side ? -1 : 1));
+  return items;
+}
+function prWorkCard(it) {
+  const e = it.ev, w = it.w;
+  const title = w ? w.title : e.t;
+  const summ = w && w.summary && w.summary_kind !== "quote" ? w.summary : prSummary(e);
+  const links = [];
+  if (w && w.text_url) links.push(`<a href="${esc(w.text_url)}" target="_blank" rel="noopener">${w.modern_url ? "Original edition" : "Read the text"} ↗</a>`);
+  if (w && w.modern_url) links.push(`<a href="${esc(w.modern_url)}" target="_blank" rel="noopener">Modern edition ↗</a>`);
+  const quote = w && (w.full_title || (w.summary_kind === "quote" && w.summary))
+    ? `<details><summary>Title page</summary><blockquote>${esc(w.full_title || w.summary)}</blockquote></details>` : "";
+  return `<div class="pr-card"><div class="d">${esc(evDateLabel(e))}</div><div class="t"><i>${esc(title)}</i></div>
+    ${summ ? `<div>${esc(summ)}</div>` : ""}${links.length ? `<div class="src">${links.join(" · ")}</div>` : ""}${quote}</div>`;
+}
+function prEventCard(it) {
+  const e = it.ev, lane = LANES.find(l => l.id === e.lane) || { name: "", color: "#888" };
+  const summ = prSummary(e), src = prSourceLine(e);
+  return `<div class="pr-card"><div class="lane" style="color:${lane.color}">${esc(lane.name)}</div>
+    <div class="d">${esc(evDateLabel(e))}</div><div class="t">${esc(e.t)}</div>
+    ${summ ? `<div>${esc(summ)}</div>` : ""}${src ? `<div class="src">${src}</div>` : ""}${prQuote(e)}</div>`;
+}
+function prHead(pid) {
+  const p = (DATA.persons || []).find(p => p.id === pid) || { n: "" };
+  const life = prLife(pid), pr = PORTRAITS[p.n];
+  const ini = p.n.split(/\s+/).filter(w => /^[A-Z]/.test(w)).map(w => w[0]).slice(0, 2).join("");
+  const img = pr ? `<div><img src="${esc(pr.img)}" alt="Portrait of ${esc(p.n)}"><div class="credit">${pr.caption ? esc(pr.caption) + ". " : ""}<a href="${esc(pr.page)}" target="_blank" rel="noopener">${esc(pr.credit)} ↗</a></div></div>`
+    : `<div class="ini">${esc(ini)}</div>`;
+  const ai = life && (life.x || []).find(x => x.kind === "ai_summary");
+  const [lo, hi] = prRange(pid);
+  const rng = (life && lo === life.se && hi === life.el) ? "" : ` · report covers ${lo.replace(/-01-01$/, "")} to ${hi.replace(/-12-31$/, "")}`;
+  return `<div class="pr-head">${img}<div><h2>${esc(p.n)}</h2>
+    <div class="life">${life ? esc(evDateLabel(life)) : ""}${rng}</div>
+    ${life && life.d ? `<div class="bio">${esc(life.d)}</div>` : ""}
+    ${ai ? `<div class="bio" style="margin-top:6px"><span class="ailabel">AI Summary.</span> ${esc(ai.body)} <span class="src" style="font-size:11.5px;color:var(--muted)">— ${xcite(ai)}</span></div>` : ""}
+  </div></div>`;
+}
+function prGraphic(pid, items) {
+  if (!items.length) return `<div class="pr-empty">Nothing to show for this range with the current lanes and filters.</div>`;
+  const rows = [];
+  for (const it of items) {
+    const last = rows[rows.length - 1];
+    if (last && !last[it.side] && last.year === it.ev.se.slice(0, 4)) last[it.side] = it;
+    else rows.push({ year: it.ev.se.slice(0, 4), [it.side]: it });
+  }
+  const yrLabel = r => { const it = r.L || r.R; return it.ev.sp === "circa" ? "c. " + Math.round((isoY(it.ev.se) + isoY(it.ev.sl)) / 2) : r.year.replace(/^0+/, ""); };
+  return `<div class="pr-cols"><div>Works</div><div></div><div>Life and events</div></div>` + rows.map(r =>
+    `<div class="pr-row"><div class="pr-cell pr-L">${r.L ? prWorkCard(r.L) : ""}</div>
+      <div class="pr-spine"><span class="dot"></span><span class="yr">${esc(yrLabel(r))}</span></div>
+      <div class="pr-cell pr-R">${r.R ? prEventCard(r.R) : ""}</div></div>`).join("");
+}
+function prText(pid, items) {
+  const ws = items.filter(i => i.side === "L"), es = items.filter(i => i.side === "R");
+  const ent = (it) => { const e = it.ev;
+    if (it.side === "L") { const w = it.w, summ = w && w.summary && w.summary_kind !== "quote" ? w.summary : prSummary(e);
+      const links = []; if (w && w.text_url) links.push(`<a href="${esc(w.text_url)}" target="_blank" rel="noopener">${w.modern_url ? "Original edition" : "Read the text"} ↗</a>`);
+      if (w && w.modern_url) links.push(`<a href="${esc(w.modern_url)}" target="_blank" rel="noopener">Modern edition ↗</a>`);
+      return `<div class="ent"><span class="d">${esc(evDateLabel(e))}</span><i>${esc(w ? w.title : e.t)}</i>. ${esc(summ)} ${links.join(" · ")}</div>`; }
+    const lane = LANES.find(l => l.id === e.lane) || { name: "" }, src = prSourceLine(e);
+    return `<div class="ent"><span class="d">${esc(evDateLabel(e))}</span><b>${esc(e.t)}</b> <span style="color:var(--muted);font-size:11.5px">(${esc(lane.name)})</span>. ${esc(prSummary(e))} ${src ? `<span style="color:var(--muted);font-size:12px">— ${src}</span>` : ""}${prQuote(e)}</div>`; };
+  return `<div class="pr-text">
+    <h3>Life and events (${es.length})</h3>${es.length ? es.map(ent).join("") : `<div class="pr-empty">None in this range.</div>`}
+    <h3>Works (${ws.length})</h3>${ws.length ? ws.map(ent).join("") : `<div class="pr-empty">${PR.works === "major" ? "No works marked as major in this range." : "None in this range."}</div>`}
+  </div>`;
+}
+function prBar() {
+  const seg = (key, opts) => `<span class="seg">${opts.map(([v, l]) =>
+    `<button class="${PR[key] === v ? "on" : ""}" onclick="PR.${key}='${v}'; refreshPersonReport()">${l}</button>`).join("")}</span>`;
+  return `${seg("view", [["graphic", "Graphic"], ["text", "Text"]])}
+    ${seg("works", [["all", "All works"], ["major", "Major works"]])}
+    <label>From <input type="text" placeholder="1650 or 1650-03" value="${esc(PR.from)}" onchange="PR.from=this.value; refreshPersonReport()"></label>
+    <label>To <input type="text" placeholder="1662-08-24" value="${esc(PR.to)}" onchange="PR.to=this.value; refreshPersonReport()"></label>
+    <button onclick="PR.from='';PR.to='';refreshPersonReport()" title="Whole life">Whole life</button>
+    <span style="flex:1"></span>
+    <label>PDF <select onchange="PR.content=this.value">${[["both","Graphic + text"],["graphic","Graphic only"],["text","Text only"]].map(([v,l])=>`<option value="${v}" ${PR.content===v?"selected":""}>${l}</option>`).join("")}</select></label>
+    <select onchange="PR.paper=this.value" title="Paper size"><option value="letter" ${PR.paper==="letter"?"selected":""}>US Letter</option><option value="A4" ${PR.paper==="A4"?"selected":""}>A4</option></select>
+    <button onclick="printPersonReport()">Export PDF</button>
+    <button class="close" style="float:none" onclick="closePersonReport()" title="Close">×</button>`;
+}
+function refreshPersonReport() {
+  const el = document.getElementById("preport");
+  if (!el || !el.classList.contains("open")) return;
+  const pid = focusPerson || PR.pid;
+  if (!pid) { closePersonReport(); return; }
+  PR.pid = pid;
+  const items = prItems(pid);
+  document.getElementById("pbar").innerHTML = prBar();
+  document.getElementById("pbody").innerHTML = prHead(pid) +
+    `<p class="pr-note">Showing the ticked lanes from the left-hand panel. General context events follow the detail level setting; this person's own events always show.</p>` +
+    (PR.view === "graphic" ? prGraphic(pid, items) : prText(pid, items));
+}
+function openPersonReport() {
+  if (!focusPerson) return;
+  if (PR.pid !== focusPerson) { PR.from = ""; PR.to = ""; }
+  document.getElementById("preport").classList.add("open");
+  refreshPersonReport();
+}
+function closePersonReport() { const el = document.getElementById("preport"); if (el) el.classList.remove("open"); }
+function printPersonReport() {
+  const pid = PR.pid; if (!pid) return;
+  const items = prItems(pid), parts = [];
+  if (PR.content !== "text") parts.push(`<div class="pr-print">${prHead(pid)}${prGraphic(pid, items)}</div>`);
+  if (PR.content !== "graphic") parts.push(`<div class="pr-print">${PR.content === "text" ? prHead(pid) : `<h2 style="font-size:16px">${esc(((DATA.persons || []).find(p => p.id === pid) || {}).n || "")}: text view</h2>`}${prText(pid, items)}</div>`);
+  document.getElementById("printArea").innerHTML = parts.join("");
+  let st = document.getElementById("prPage");
+  if (!st) { st = document.createElement("style"); st.id = "prPage"; document.head.appendChild(st); }
+  st.textContent = `@media print { @page { size: ${PR.paper === "A4" ? "A4" : "letter"} portrait; margin: 0.6in 0.55in; } }`;
+  const done = () => { st.textContent = ""; window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done);
+  const imgs = [...document.querySelectorAll("#printArea img")];
+  Promise.all(imgs.map(i => i.complete ? 1 : new Promise(r => { i.onload = i.onerror = r; })))
+    .then(() => setTimeout(() => window.print(), 80));
+}
+document.getElementById("preportBtn").addEventListener("click", () => {
+  const el = document.getElementById("preport");
+  el.classList.contains("open") ? closePersonReport() : openPersonReport();
+});
 // sidebar sections: remember open/closed per section
 document.querySelectorAll("aside details.sec").forEach(d => {
   const k = "ptl-sec-" + d.dataset.sec;
@@ -1963,5 +2199,6 @@ function fitPeople() {
 window.addEventListener("resize", fitPeople);
 requestAnimationFrame(fitPeople);
 </script>
+<div id="preport"><div class="pbar" id="pbar"></div><div class="pbody" id="pbody"></div></div>
 </body>
 </html>
