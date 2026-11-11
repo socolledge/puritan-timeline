@@ -248,9 +248,9 @@
   .pr-head .bio { line-height: 1.55; }
   .pr-head .credit { font-size: 10.5px; color: var(--muted); margin-top: 4px; max-width: 120px; }
   .pr-note { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; }
-  .pr-cols { display: grid; grid-template-columns: minmax(0,32fr) 76px minmax(0,60fr);
+  .pr-cols { display: grid; grid-template-columns: minmax(0,44fr) 76px minmax(0,48fr);
     font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
-  .pr-row { display: grid; grid-template-columns: minmax(0,32fr) 76px minmax(0,60fr);
+  .pr-row { display: grid; grid-template-columns: minmax(0,44fr) 76px minmax(0,48fr);
     break-inside: avoid; page-break-inside: avoid; }
   .pr-spine { position: relative; background: linear-gradient(var(--muted), var(--muted)) no-repeat center / 1px 100%; }
   .pr-spine .dot { position: absolute; top: 15px; left: 50%; width: 9px; height: 9px; margin-left: -4.5px;
@@ -263,6 +263,11 @@
   .pr-L .pr-card::after, .pr-R .pr-card::after { content: ""; position: absolute; top: 11px; height: 1px;
     background: var(--muted); width: 38px; }
   .pr-L .pr-card::after { right: -39px; }
+  .pr-L .pr-card.work { margin-left: 34px; }
+  .pr-post { margin-top: 26px; break-before: auto; }
+  .pr-post h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+  .pr-post .pr-card { max-width: 44%; margin: 0 0 12px 34px; }
+  .pr-post .pr-card::after { display: none; }
   .pr-R .pr-card::after { left: -39px; }
   .pr-card .d { color: var(--accent); font-size: 12px; font-weight: 600; }
   .pr-card .t { font-weight: 600; margin: 1px 0 3px; }
@@ -2007,7 +2012,7 @@ if ("serviceWorker" in navigator)
 
 
 // ---------- person report (author view, graphic + text, PDF) ----------
-const PR = { view: "graphic", works: "all", from: "", to: "", paper: "letter", content: "both", pid: "" };
+const PR = { view: "graphic", works: "all", afterDeath: false, from: "", to: "", paper: "letter", content: "both", pid: "" };
 function prLife(pid) {
   return EVENTS.find(e => e.lane === livesLaneId && e.people.some(p => p.id === pid && p.role === "subject"));
 }
@@ -2050,12 +2055,13 @@ function prItems(pid) {
   const inR = e => e.se <= hi && e.el >= lo;
   const mw = weightMode === "auto" ? 2 : +weightMode;
   const items = [];
+  const life = prLife(pid), death = life ? life.el : "9999";
   if (activeLanes.has(pubsLaneId)) {
     for (const e of EVENTS) {
       if (e.lane !== pubsLaneId || !inR(e) || !e.people.some(p => p.id === pid)) continue;
       if (PR.works === "major" && e.w < 2) continue;
       const w = e.works.length ? workByTitle(e.works[0].title) : null;
-      items.push({ side: "L", ev: e, w });
+      items.push({ side: "L", kind: "work", ev: e, w, post: e.se > death });
     }
   }
   for (const e of EVENTS) {
@@ -2063,7 +2069,9 @@ function prItems(pid) {
     if (!activeLanes.has(e.lane) || !passesStatic(e)) continue;
     const mine = e.people.some(p => p.id === pid);
     if (e.lane === personalLaneId ? !mine : (!mine && e.w < mw)) continue;
-    items.push({ side: "R", ev: e, mine });
+    if (!PR.afterDeath && e.se > death) continue;
+    const personal = e.lane === personalLaneId;
+    items.push({ side: personal ? "L" : "R", kind: personal ? "personal" : "event", ev: e, mine });
   }
   items.sort((a, b) => (a.ev.se < b.ev.se ? -1 : a.ev.se > b.ev.se ? 1 : a.side < b.side ? -1 : 1));
   return items;
@@ -2077,7 +2085,7 @@ function prWorkCard(it) {
   if (w && w.modern_url) links.push(`<a href="${esc(w.modern_url)}" target="_blank" rel="noopener">Modern edition ↗</a>`);
   const quote = w && (w.full_title || (w.summary_kind === "quote" && w.summary))
     ? `<details><summary>Title page</summary><blockquote>${esc(w.full_title || w.summary)}</blockquote></details>` : "";
-  return `<div class="pr-card"><div class="d">${esc(evDateLabel(e))}</div><div class="t"><i>${esc(title)}</i></div>
+  return `<div class="pr-card work"><div class="d">${esc(evDateLabel(e))}</div><div class="t"><i>${esc(title)}</i></div>
     ${summ ? `<div>${esc(summ)}</div>` : ""}${links.length ? `<div class="src">${links.join(" · ")}</div>` : ""}${quote}</div>`;
 }
 function prEventCard(it) {
@@ -2105,24 +2113,28 @@ function prHead(pid) {
 function prGraphic(pid, items) {
   if (!items.length) return `<div class="pr-empty">Nothing to show for this range with the current lanes and filters.</div>`;
   const rows = [];
+  const post = PR.afterDeath ? [] : items.filter(i => i.post);
+  items = PR.afterDeath ? items : items.filter(i => !i.post);
   for (const it of items) {
     const last = rows[rows.length - 1];
     if (last && !last[it.side] && last.year === it.ev.se.slice(0, 4)) last[it.side] = it;
     else rows.push({ year: it.ev.se.slice(0, 4), [it.side]: it });
   }
   const yrLabel = r => { const it = r.L || r.R; return it.ev.sp === "circa" ? "c. " + Math.round((isoY(it.ev.se) + isoY(it.ev.sl)) / 2) : r.year.replace(/^0+/, ""); };
-  return `<div class="pr-cols"><div>Works</div><div></div><div>Life and events</div></div>` + rows.map(r =>
-    `<div class="pr-row"><div class="pr-cell pr-L">${r.L ? prWorkCard(r.L) : ""}</div>
+  const card = it => it.kind === "work" ? prWorkCard(it) : prEventCard(it);
+  const postHTML = post.length ? `<div class="pr-post"><h3>Published after death (${post.length})</h3>${post.map(prWorkCard).join("")}</div>` : "";
+  return `<div class="pr-cols"><div>Personal life · <span style="margin-left:34px">works</span></div><div></div><div>Events</div></div>` + rows.map(r =>
+    `<div class="pr-row"><div class="pr-cell pr-L">${r.L ? card(r.L) : ""}</div>
       <div class="pr-spine"><span class="dot"></span><span class="yr">${esc(yrLabel(r))}</span></div>
-      <div class="pr-cell pr-R">${r.R ? prEventCard(r.R) : ""}</div></div>`).join("");
+      <div class="pr-cell pr-R">${r.R ? card(r.R) : ""}</div></div>`).join("") + postHTML;
 }
 function prText(pid, items) {
-  const ws = items.filter(i => i.side === "L"), es = items.filter(i => i.side === "R");
+  const ws = items.filter(i => i.kind === "work"), es = items.filter(i => i.kind !== "work");
   const ent = (it) => { const e = it.ev;
-    if (it.side === "L") { const w = it.w, summ = w && w.summary && w.summary_kind !== "quote" ? w.summary : prSummary(e);
+    if (it.kind === "work") { const w = it.w, summ = w && w.summary && w.summary_kind !== "quote" ? w.summary : prSummary(e);
       const links = []; if (w && w.text_url) links.push(`<a href="${esc(w.text_url)}" target="_blank" rel="noopener">${w.modern_url ? "Original edition" : "Read the text"} ↗</a>`);
       if (w && w.modern_url) links.push(`<a href="${esc(w.modern_url)}" target="_blank" rel="noopener">Modern edition ↗</a>`);
-      return `<div class="ent"><span class="d">${esc(evDateLabel(e))}</span><i>${esc(w ? w.title : e.t)}</i>. ${esc(summ)} ${links.join(" · ")}</div>`; }
+      return `<div class="ent"><span class="d">${esc(evDateLabel(e))}</span><i>${esc(w ? w.title : e.t)}</i>${it.post && !PR.afterDeath ? ' <span style="color:var(--muted);font-size:11.5px">(posthumous)</span>' : ""}. ${esc(summ)} ${links.join(" · ")}</div>`; }
     const lane = LANES.find(l => l.id === e.lane) || { name: "" }, src = prSourceLine(e);
     return `<div class="ent"><span class="d">${esc(evDateLabel(e))}</span><b>${esc(e.t)}</b> <span style="color:var(--muted);font-size:11.5px">(${esc(lane.name)})</span>. ${esc(prSummary(e))} ${src ? `<span style="color:var(--muted);font-size:12px">— ${src}</span>` : ""}${prQuote(e)}</div>`; };
   return `<div class="pr-text">
@@ -2138,6 +2150,7 @@ function prBar() {
     <label>From <input type="text" placeholder="1650 or 1650-03" value="${esc(PR.from)}" onchange="PR.from=this.value; refreshPersonReport()"></label>
     <label>To <input type="text" placeholder="1662-08-24" value="${esc(PR.to)}" onchange="PR.to=this.value; refreshPersonReport()"></label>
     <button onclick="PR.from='';PR.to='';refreshPersonReport()" title="Whole life">Whole life</button>
+    ${PR.hasPost ? `<label title="Off: after the author's death only posthumous works are listed, in a separate block"><input type="checkbox" ${PR.afterDeath ? "checked" : ""} onchange="PR.afterDeath=this.checked; refreshPersonReport()"> Show events between death and last publication</label>` : ""}
     <span style="flex:1"></span>
     <label>PDF <select onchange="PR.content=this.value">${[["both","Graphic + text"],["graphic","Graphic only"],["text","Text only"]].map(([v,l])=>`<option value="${v}" ${PR.content===v?"selected":""}>${l}</option>`).join("")}</select></label>
     <select onchange="PR.paper=this.value" title="Paper size"><option value="letter" ${PR.paper==="letter"?"selected":""}>US Letter</option><option value="A4" ${PR.paper==="A4"?"selected":""}>A4</option></select>
@@ -2151,6 +2164,7 @@ function refreshPersonReport() {
   if (!pid) { closePersonReport(); return; }
   PR.pid = pid;
   const items = prItems(pid);
+  PR.hasPost = items.some(i => i.post);
   document.getElementById("pbar").innerHTML = prBar();
   document.getElementById("pbody").innerHTML = prHead(pid) +
     `<p class="pr-note">Showing the ticked lanes from the left-hand panel. General context events follow the detail level setting; this person's own events always show.</p>` +
