@@ -85,6 +85,11 @@
   #detail .date { color: var(--accent); font-weight: 600; margin-bottom: 4px; }
   #detail .dar { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
   #detail .desc { margin: 10px 0; }
+  #detail .portrait { float: right; width: 112px; margin: 18px 0 8px 12px; }
+  #detail .portrait img { width: 112px; border-radius: 6px; border: 1px solid var(--line); display: block; }
+  #detail .portrait figcaption { font-size: 10.5px; color: var(--muted); line-height: 1.3; margin-top: 3px; }
+  #detail .portrait.none { width: 44px; height: 44px; border-radius: 50%; background: var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--muted); }
   .xcerpt { margin: 8px 0 12px; font-size: 13px; line-height: 1.5; }
   .xcerpt blockquote { margin: 0; padding: 2px 0 2px 10px;
     border-left: 3px solid var(--line); font-family: Georgia, "Times New Roman", serif; }
@@ -408,6 +413,7 @@ let activeLanes = new Set(), weightMode = "auto", hideDisputed = false, tagFilte
 let LIVES_SUBJECTS = new Set();
 const PUBS_ALL_ZOOM_MAX = 10;   // ticked people at or below which all their works show at any zoom
 let focusPerson = "", selected = null;
+let PORTRAITS = {};   // display name -> {img, credit, page, licence, caption}; from portraits.json
 let hiddenPersons = new Set(), livesLaneId = 0, personalLaneId = 0, pubsLaneId = 0;
 let hitRects = [];   // {x0,y0,x1,y1,ev}
 const cv = document.getElementById("cv");
@@ -854,6 +860,15 @@ function tooltip(e) {
 // ---------- detail panel ----------
 const detail = document.getElementById("detail"),
       detailInner = document.getElementById("detailInner");
+function portraitHTML(name) {
+  const pr = PORTRAITS[name];
+  if (!pr) {
+    const ini = name.split(/\s+/).filter(w => /^[A-Z]/.test(w)).map(w => w[0]).slice(0, 2).join("");
+    return `<div class="portrait none" aria-hidden="true">${esc(ini)}</div>`;
+  }
+  return `<figure class="portrait"><img src="${esc(pr.img)}" alt="Portrait of ${esc(name)}" loading="lazy">
+    <figcaption>${pr.caption ? esc(pr.caption) + ". " : ""}<a href="${esc(pr.page)}" target="_blank" rel="noopener">${esc(pr.credit || "Wikimedia Commons")} ↗</a></figcaption></figure>`;
+}
 function showDetail(ev) {
   if (!ev) { detail.classList.remove("open"); return; }
   const lane = LANES.find(l => l.id === ev.lane);
@@ -884,12 +899,15 @@ function showDetail(ev) {
   const sources = ev.sources.map(s =>
     `<li>${s.url ? `<a href="${s.url}" target="_blank">${esc(s.ref)}</a>` : esc(s.ref)}` +
     `${s.loc ? `<span style="color:var(--muted)">, ${esc(s.loc)}</span>` : ""}</li>`).join("");
+  const subj = ev.lane === livesLaneId ? ev.people.find(p => p.role === "subject") : null;
+  const portrait = subj ? portraitHTML(subj.n) : "";
   detailInner.innerHTML = `
     <button class="close" onclick="closeDetail()">×</button>
     <button class="close" style="font-size:13px" title="Edit this event"
       onclick="showForm(EVENTS.find(e=>e.id==='${ev.id}'))">✎ edit</button>
     <div style="color:${lane.color};font-size:11px;font-weight:650;
       text-transform:uppercase;letter-spacing:.05em">${esc(lane.name)}</div>
+    ${portrait}
     <h3>${esc(ev.t)}</h3>
     <div class="date">${esc(evDateLabel(ev))}</div>
     ${ev.dar ? `<div class="dar">as recorded: ${esc(ev.dar)}</div>` : ""}
@@ -1777,6 +1795,7 @@ async function loadPayload() {
 }
 async function startApp() {
   document.getElementById("gate").classList.remove("show");
+  try { PORTRAITS = await (await fetch("portraits/portraits.json", { cache: "no-cache" })).json(); } catch (e) { PORTRAITS = {}; }
   applyData(await loadPayload());
   resize();
 }
