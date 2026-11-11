@@ -280,6 +280,12 @@
   .pr-text h3 { font-size: 15px; margin: 22px 0 8px; break-after: avoid; page-break-after: avoid; }
   .pr-text .ent { margin: 0 0 12px; break-inside: avoid; page-break-inside: avoid; font-size: 13px; line-height: 1.5; }
   .pr-text .ent .d { color: var(--accent); font-weight: 600; margin-right: 6px; }
+  .pr-text .ent.k-personal { background: #f1ebfb; border-left: 3px solid var(--accent); padding: 6px 10px; border-radius: 0 6px 6px 0; }
+  .pr-text .ent.k-work { background: #f6f3ec; border-left: 3px solid #b8ad97; padding: 6px 10px; margin-left: 22px; border-radius: 0 6px 6px 0; }
+  .pr-text .ent.k-event { padding: 0 10px 0 13px; }
+  .pr-text .legend { font-size: 12px; color: var(--muted); margin: 4px 0 12px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .pr-text .legend span { padding: 1px 8px; border-radius: 4px; }
+  #preportBtn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
   .pr-empty { color: var(--muted); padding: 20px 0; }
   @media print {
     #printArea .pr-print { font-size: 10pt; }
@@ -2014,7 +2020,7 @@ if ("serviceWorker" in navigator)
 
 
 // ---------- person report (author view, graphic + text, PDF) ----------
-const PR = { view: "graphic", works: "all", afterDeath: false, from: "", to: "", paper: "letter", content: "both", pid: "" };
+const PR = { view: "graphic", works: "all", afterDeath: false, textGroup: "lane", from: "", to: "", paper: "letter", content: "both", pid: "" };
 function prLife(pid) {
   return EVENTS.find(e => e.lane === livesLaneId && e.people.some(p => p.id === pid && p.role === "subject"));
 }
@@ -2153,23 +2159,38 @@ function prGraphic(pid, items) {
       <div class="pr-cell pr-R">${r.R ? card(r.R) : ""}</div></div>`).join("") + postHTML;
 }
 function prText(pid, items) {
-  const ws = items.filter(i => i.kind === "work"), es = items.filter(i => i.kind !== "work");
   const ent = (it) => { const e = it.ev;
     if (it.kind === "work") { const w = it.w, summ = w && w.summary && w.summary_kind !== "quote" ? w.summary : prSummary(e);
       const links = []; if (w && w.text_url) links.push(`<a href="${esc(w.text_url)}" target="_blank" rel="noopener">${w.modern_url ? "Original edition" : "Read the text"} ↗</a>`);
       if (w && w.modern_url) links.push(`<a href="${esc(w.modern_url)}" target="_blank" rel="noopener">Modern edition ↗</a>`);
-      return `<div class="ent"><span class="d">${esc(evDateLabel(e))}</span><i>${esc(w ? w.title : e.t)}</i>${it.post && !PR.afterDeath ? ' <span style="color:var(--muted);font-size:11.5px">(posthumous)</span>' : ""}. ${esc(summ)} ${links.join(" · ")}</div>`; }
+      return `<div class="ent k-work"><span class="d">${esc(evDateLabel(e))}</span><i>${esc(w ? w.title : e.t)}</i>${it.post && !PR.afterDeath ? ' <span style="color:var(--muted);font-size:11.5px">(posthumous)</span>' : ""}. ${esc(summ)} ${links.join(" · ")}</div>`; }
     const lane = LANES.find(l => l.id === e.lane) || { name: "" }, src = prSourceLine(e);
-    return `<div class="ent"><span class="d">${esc(evDateLabel(e))}</span><b>${esc(e.t)}</b> <span style="color:var(--muted);font-size:11.5px">(${esc(lane.name)})</span>. ${esc(prSummary(e))} ${src ? `<span style="color:var(--muted);font-size:12px">— ${src}</span>` : ""}${prQuote(e)}</div>`; };
+    return `<div class="ent k-${it.kind}"><span class="d">${esc(evDateLabel(e))}</span><b>${esc(e.t)}</b> <span style="color:var(--muted);font-size:11.5px">(${esc(lane.name)})</span>. ${esc(prSummary(e))} ${src ? `<span style="color:var(--muted);font-size:12px">— ${src}</span>` : ""}${prQuote(e)}</div>`; };
+  const none = `<div class="pr-empty">None in this range.</div>`;
+  if (PR.textGroup === "chrono") {
+    return `<div class="pr-text"><h3>All entries in date order (${items.length})</h3>
+      <div class="legend"><span class="k" style="background:#f1ebfb;border-left:3px solid var(--accent)">Personal life</span>
+        <span style="background:#f6f3ec;border-left:3px solid #b8ad97">Works</span><span>Other events: plain</span></div>
+      ${items.length ? items.map(ent).join("") : none}</div>`;
+  }
+  const personal = items.filter(i => i.kind === "personal"), ws = items.filter(i => i.kind === "work");
+  const byLane = new Map();
+  for (const i of items.filter(i => i.kind === "event")) {
+    if (!byLane.has(i.ev.lane)) byLane.set(i.ev.lane, []);
+    byLane.get(i.ev.lane).push(i);
+  }
+  const laneOrder = LANES.slice().sort((a, b) => a.sort_order - b.sort_order).filter(l => byLane.has(l.id));
   return `<div class="pr-text">
-    <h3>Life and events (${es.length})</h3>${es.length ? es.map(ent).join("") : `<div class="pr-empty">None in this range.</div>`}
+    <h3>Personal life (${personal.length})</h3>${personal.length ? personal.map(ent).join("") : none}
     <h3>Works (${ws.length})</h3>${ws.length ? ws.map(ent).join("") : `<div class="pr-empty">${PR.works === "major" ? "No works marked as major in this range." : "None in this range."}</div>`}
+    ${laneOrder.map(l => `<h3>${esc(l.name)} (${byLane.get(l.id).length})</h3>${byLane.get(l.id).map(ent).join("")}`).join("")}
   </div>`;
 }
 function prBar() {
   const seg = (key, opts) => `<span class="seg">${opts.map(([v, l]) =>
     `<button class="${PR[key] === v ? "on" : ""}" onclick="PR.${key}='${v}'; refreshPersonReport()">${l}</button>`).join("")}</span>`;
   return `${seg("view", [["graphic", "Graphic"], ["text", "Text"]])}
+    ${PR.view === "text" ? seg("textGroup", [["lane", "By lane"], ["chrono", "Chronological"]]) : ""}
     ${seg("works", [["all", "All works"], ["major", "Major works"]])}
     <label>From <input type="text" placeholder="1650 or 1650-03" value="${esc(PR.from)}" onchange="PR.from=this.value; refreshPersonReport()"></label>
     <label>To <input type="text" placeholder="1662-08-24" value="${esc(PR.to)}" onchange="PR.to=this.value; refreshPersonReport()"></label>
@@ -2179,13 +2200,14 @@ function prBar() {
     <label>PDF <select onchange="PR.content=this.value">${[["both","Graphic + text"],["graphic","Graphic only"],["text","Text only"]].map(([v,l])=>`<option value="${v}" ${PR.content===v?"selected":""}>${l}</option>`).join("")}</select></label>
     <select onchange="PR.paper=this.value" title="Paper size"><option value="letter" ${PR.paper==="letter"?"selected":""}>US Letter</option><option value="A4" ${PR.paper==="A4"?"selected":""}>A4</option></select>
     <button onclick="printPersonReport()">Export PDF</button>
-    <button class="close" style="float:none" onclick="closePersonReport()" title="Close">×</button>`;
+    <button style="float:none" onclick="closePersonReport()" title="Back to the timeline">← Timeline</button>`;
 }
 function refreshPersonReport() {
   const el = document.getElementById("preport");
   if (!el || !el.classList.contains("open")) return;
   const pid = focusPerson || PR.pid;
   if (!pid) { closePersonReport(); return; }
+  if (PR.pid && PR.pid !== pid) { PR.from = ""; PR.to = ""; PR.afterDeath = false; }
   PR.pid = pid;
   const items = prItems(pid);
   PR.hasPost = items.some(i => i.post);
@@ -2198,9 +2220,16 @@ function openPersonReport() {
   if (!focusPerson) return;
   if (PR.pid !== focusPerson) { PR.from = ""; PR.to = ""; }
   document.getElementById("preport").classList.add("open");
+  prBtn(true);
   refreshPersonReport();
 }
-function closePersonReport() { const el = document.getElementById("preport"); if (el) el.classList.remove("open"); }
+function closePersonReport() { const el = document.getElementById("preport"); if (el) el.classList.remove("open"); prBtn(false); }
+function prBtn(open) {
+  const b = document.getElementById("preportBtn"); if (!b) return;
+  b.textContent = open ? "← Back to timeline" : "Person report";
+  b.title = open ? "Close the person report and return to the timeline" : "Report on the focused person";
+  b.classList.toggle("on", open);
+}
 function printPersonReport() {
   const pid = PR.pid; if (!pid) return;
   const items = prItems(pid), parts = [];
