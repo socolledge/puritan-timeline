@@ -320,6 +320,20 @@
   details.lw .y { color: var(--accent); font-weight: 600; min-width: 40px; }
   details.lw .chip { font-size: 10.5px; padding: 1px 7px; border-radius: 10px; background: #efe9fb; color: var(--accent); white-space: nowrap; }
   details.lw .lwbody { padding: 2px 0 12px 22px; }
+  details.lw a.txt { font-size: 11.5px; color: var(--accent); text-decoration: none; margin-left: 6px; white-space: nowrap; font-style: normal; }
+  details.lw a.txt:hover { text-decoration: underline; }
+  .wtags { margin: 6px 0 2px; display: flex; flex-wrap: wrap; gap: 5px; }
+  a.tag { font-size: 11.5px; padding: 1px 8px; border-radius: 10px; background: #eef3f8; color: #2c4a66; cursor: pointer; text-decoration: none; }
+  a.tag.scr { background: #f6efe2; color: #6b4a14; }
+  a.tag:hover { filter: brightness(0.95); text-decoration: underline; }
+  #library .tgrp { margin: 14px 0 4px; font-weight: 600; font-size: 13px; color: var(--muted); }
+  #library .tlist { display: flex; flex-wrap: wrap; gap: 6px; }
+  #library .bk { margin-top: 18px; }
+  #library .bk h4 { margin: 0 0 4px; font-size: 15px; }
+  #library .bjump { font-size: 12.5px; line-height: 1.9; }
+  #library .bjump a { margin-right: 8px; cursor: pointer; }
+  #library .sref { display: flex; gap: 10px; padding: 3px 0; font-size: 13.5px; border-bottom: 1px dotted var(--line); }
+  #library .sref .r { min-width: 130px; color: #6b4a14; font-weight: 600; }
   #library { position: fixed; top: 52px; left: 218px; right: 0; bottom: 0; z-index: 41; background: var(--bg); overflow-y: auto; display: none; }
   #library.open { display: block; }
   #library .lbar { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; z-index: 2; }
@@ -2349,9 +2363,10 @@ function apWorkItem(w, opts) {
   const id = "lw-" + btoa(unescape(encodeURIComponent(w.title))).replace(/[^a-z0-9]/gi, "").slice(0, 40);
   const by = opts && opts.showAuthor ? (w.authors || []).map(a => `<a class="lk" onclick="event.preventDefault(); apOpen('${a}')">${esc(pName(a))}</a>`).join(", ") : "";
   return `<details class="lw" id="${id}" data-title="${esc(w.title).replace(/"/g, "&quot;")}" ontoggle="if(this.open) apLoadSummary(this)">
-    <summary><span class="y">${w.year || "—"}</span><span><i>${esc(w.title)}</i>${by ? ` <span class="ap-src">· ${by}</span>` : ""}</span>
+    <summary><span class="y">${w.year || "—"}</span><span><i>${esc(w.title)}</i>${by ? ` <span class="ap-src">· ${by}</span>` : ""}${w.text_url || w.modern_url ? ` <a class="txt" href="${esc(w.text_url || w.modern_url)}" title="Read the text (opens a new tab)" onclick="event.preventDefault(); event.stopPropagation(); window.open(this.href, '_blank', 'noopener')">text ↗</a>` : ""}</span>
     <span class="chip" data-chip style="display:none">full summary</span></summary>
     <div class="lwbody">${w.summary ? `<div style="font-size:13.5px"><span class="ap-src">At a glance:</span> ${esc(w.summary_kind === "quote" ? "“" + w.summary + "”" : w.summary)}</div>` : ""}
+      ${(w.keywords || []).length || (w.scripture || []).length ? `<div class="wtags">${(w.keywords || []).map(k => `<a class="tag" onclick="libTopic(${JSON.stringify(k).replace(/"/g, "&quot;")})">${esc(k)}</a>`).join("")}${(w.scripture || []).map(r => `<a class="tag scr" title="Scripture index" onclick="libScripture(${JSON.stringify(r).replace(/"/g, "&quot;")})">${esc(r)}</a>`).join("")}</div>` : ""}
       <div class="ap-md" data-long style="padding-left:0"></div>
       <div class="ap-src">${[w.text_url ? `<a href="${esc(w.text_url)}" target="_blank" rel="noopener">${w.modern_url ? "Original edition" : "Read the text"} ↗</a>` : "",
         w.modern_url ? `<a href="${esc(w.modern_url)}" target="_blank" rel="noopener">Modern edition ↗</a>` : "",
@@ -2391,7 +2406,37 @@ function apOpen(pid, workTitle) {
   openPersonReport();
 }
 // ----- library -----
-const LIB = { q: "", mode: "authors", author: "", decade: "" };
+const LIB = { q: "", mode: "authors", author: "", decade: "", tag: "", book: "" };
+// Controlled topic list (data/library/topics.json): tags are assigned by reading, not word-matching.
+const TOPIC_GROUPS = {
+  "Doctrine": ["God's attributes", "Trinity", "Christ", "Holy Spirit", "Scripture", "Providence", "Predestination", "Covenant", "Sin", "Justification", "Sanctification", "Conversion", "Faith", "Repentance", "Assurance", "Union with Christ", "Adoption", "Perseverance", "Law and gospel", "Grace", "Atonement", "Resurrection", "Last things", "Heaven", "Hell", "Angels and devils"],
+  "Christian life": ["Affliction", "Conscience", "Cases of conscience", "Temptation", "Spiritual desertion", "Prayer", "Meditation", "Self-denial", "Fear of God", "Love", "Spiritual warfare", "The tongue", "Death and dying", "Christian living", "Zeal"],
+  "Worship and church": ["Lord's Supper", "Baptism", "Sabbath", "Worship", "Preaching and ministry", "Church government", "Catechism", "Fasting", "Thanksgiving"],
+  "Society": ["Family", "Marriage", "Women", "Youth", "Callings and work", "Wealth and usury", "Magistrates and state", "War and rebellion", "National judgements", "Toleration and liberty", "Missions"],
+  "Controversy": ["Popery", "Arminianism", "Quakers and sects", "Controversy"],
+  "Form": ["Bible commentary", "Biography", "Poetry", "History", "Medicine and science"] };
+const BIBLE = ["Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther","Job","Psalms","Proverbs","Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi","Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians","Ephesians","Philippians","Colossians","1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"];
+// "Psalm 27:4" -> {b: "Psalms", c: 27, c2: 27, v1: 4, v2: 4}
+function parseRef(r) {
+  const m = String(r).trim().match(/^(.+?)\s+(\d+)(?:\s*[-–]\s*(\d+)(?!\s*:))?(?::(\d+)(?:\s*[-–]\s*(\d+))?)?$/);
+  if (!m) return null;
+  let b = m[1].toLowerCase().replace(/^psalm$/, "psalms").replace(/^(canticles|song of songs)$/, "song of solomon").replace(/^revelations$/, "revelation");
+  const book = BIBLE.find(x => x.toLowerCase() === b) || BIBLE.find(x => b.length >= 3 && x.toLowerCase().startsWith(b));
+  if (!book) return null;
+  const c = +m[2], c2 = m[3] ? +m[3] : c;
+  return { b: book, c, c2, v1: m[4] ? +m[4] : 0, v2: m[5] ? +m[5] : (m[4] ? +m[4] : 999) };
+}
+function refOverlap(a, q) {
+  if (a.b !== q.b || a.c2 < q.c || a.c > q.c2) return false;
+  if (!q.v1 || a.c !== a.c2 || q.c !== q.c2) return true;
+  return !(a.v2 < q.v1 || a.v1 > q.v2) || !a.v1;
+}
+function libTopic(t) { LIB.mode = "topics"; LIB.tag = t; LIB.q = ""; openLibrary(); }
+function libScripture(r) { LIB.mode = "scripture"; LIB.book = (parseRef(r) || {}).b || ""; LIB.q = ""; LIB.scrollRef = r; openLibrary(); }
+function libWorkList(ws) {
+  ws = ws.slice().sort((a, b) => (a.year || 9999) - (b.year || 9999) || a.title.localeCompare(b.title));
+  return ws.map(w => apWorkItem(w, { showAuthor: true })).join("");
+}
 function openLibrary() {
   closePersonReport();
   document.getElementById("library").classList.add("open");
@@ -2413,10 +2458,10 @@ function libAuthors() {
 }
 function renderLibrary() {
   const bar = document.getElementById("lbar"), body = document.getElementById("lbody");
-  const seg = `<span class="seg">${[["authors", "Authors"], ["works", "Works"]].map(([v, l]) =>
-    `<button class="${LIB.mode === v ? "on" : ""}" onclick="LIB.mode='${v}'; renderLibrary()">${l}</button>`).join("")}</span>`;
+  const seg = `<span class="seg">${[["authors", "Authors"], ["works", "Works"], ["topics", "Topics"], ["scripture", "Scripture"]].map(([v, l]) =>
+    `<button class="${LIB.mode === v ? "on" : ""}" onclick="LIB.mode='${v}'; LIB.tag=''; LIB.q=''; renderLibrary()">${l}</button>`).join("")}</span>`;
   const authors = libAuthors();
-  bar.innerHTML = `<input id="libQ" type="search" placeholder="Search titles, summaries and biographies…" value="${esc(LIB.q)}" style="flex:1;min-width:240px">
+  bar.innerHTML = `<input id="libQ" type="search" placeholder="Search titles, summaries, biographies, topics, or a passage (e.g. Psalm 119)…" value="${esc(LIB.q)}" style="flex:1;min-width:240px">
     ${seg}
     ${LIB.mode === "works" && !LIB.q ? `<select onchange="LIB.author=this.value; renderLibrary()"><option value="">All authors</option>${authors.filter(a => a.c).map(a => `<option value="${a.id}" ${LIB.author === a.id ? "selected" : ""}>${esc(a.n)} (${a.c})</option>`).join("")}</select>
       <select onchange="LIB.decade=this.value; renderLibrary()"><option value="">All decades</option>${Array.from({ length: 19 }, (_, i) => 1550 + i * 10).map(d => `<option value="${d}" ${String(LIB.decade) === String(d) ? "selected" : ""}>${d}s</option>`).join("")}</select>` : ""}
@@ -2424,6 +2469,8 @@ function renderLibrary() {
   const q = document.getElementById("libQ");
   q.addEventListener("input", () => { clearTimeout(LIB.t); LIB.t = setTimeout(() => { LIB.q = q.value.trim(); libSearch(); }, 300); });
   if (LIB.q) { libSearch(); return; }
+  if (LIB.mode === "topics") { body.innerHTML = libTopicsHTML(); return; }
+  if (LIB.mode === "scripture") { body.innerHTML = libScriptureHTML(); libScrollRef(); return; }
   if (LIB.mode === "authors") {
     body.innerHTML = `<div class="ap-sec">Authors (${authors.length})</div><div class="alist">${authors.map(a =>
       `<div><a class="lk" onclick="apOpen('${a.id}')">${esc(a.n)}</a> <span class="ap-src">${a.c ? a.c + " works" : ""}</span></div>`).join("")}</div>`;
@@ -2436,6 +2483,52 @@ function renderLibrary() {
     body.innerHTML = `<div class="ap-sec">Works (${ws.length}${ws.length > 400 ? ", first 400 shown; narrow by author or decade" : ""})</div>${shown.map(w => apWorkItem(w, { showAuthor: true })).join("")}`;
   }
 }
+function libTopicCounts() {
+  const c = {};
+  for (const w of DATA.works || []) for (const k of w.keywords || []) c[k] = (c[k] || 0) + 1;
+  return c;
+}
+function libTopicsHTML() {
+  const c = libTopicCounts(), tagged = (DATA.works || []).filter(w => (w.keywords || []).length).length;
+  const pick = t => `<a class="tag" style="${LIB.tag === t ? "outline:2px solid var(--accent)" : ""}${c[t] ? "" : ";opacity:.45"}" onclick="LIB.tag=${JSON.stringify(t).replace(/"/g, "&quot;")}; renderLibrary()">${esc(t)}${c[t] ? ` · ${c[t]}` : ""}</a>`;
+  let h = `<div class="ap-src">Topics are assigned by reading each work, and are being added as full summaries are written: ${tagged} of ${(DATA.works || []).length} works tagged so far.</div>`;
+  h += Object.entries(TOPIC_GROUPS).map(([g, ts]) => `<div class="tgrp">${g}</div><div class="tlist">${ts.map(pick).join("")}</div>`).join("");
+  if (LIB.tag) {
+    const ws = (DATA.works || []).filter(w => (w.keywords || []).includes(LIB.tag));
+    h += `<div class="ap-sec" style="margin-top:22px">${esc(LIB.tag)} (${ws.length})</div>${ws.length ? libWorkList(ws) : `<div class="pr-empty">No works tagged yet.</div>`}`;
+  }
+  return h;
+}
+function libScriptureIndex() {
+  const out = {};
+  for (const w of DATA.works || []) for (const r of w.scripture || []) {
+    const p = parseRef(r); if (!p) continue;
+    (out[p.b] = out[p.b] || []).push({ r, p, w });
+  }
+  for (const b in out) out[b].sort((x, y) => x.p.c - y.p.c || x.p.v1 - y.p.v1 || (x.w.year || 9999) - (y.w.year || 9999));
+  return out;
+}
+function libRefRow(e) {
+  const w = e.w, by = (w.authors || []).map(a => `<a class="lk" onclick="apOpen('${a}', ${JSON.stringify(w.title).replace(/"/g, "&quot;")})">${esc(pName(a))}</a>`).join(", ");
+  const link = w.text_url || w.modern_url;
+  return `<div class="sref" data-ref="${esc(e.r)}"><span class="r">${esc(e.r)}</span><span><i>${esc(w.title)}</i> <span class="ap-src">· ${by}${w.year ? ", " + w.year : ""}</span>${link ? ` <a class="lk" style="font-size:11.5px" href="${esc(link)}" target="_blank" rel="noopener">text ↗</a>` : ""}</span></div>`;
+}
+function libScriptureHTML() {
+  const idx = libScriptureIndex(), books = BIBLE.filter(b => idx[b]);
+  const n = books.reduce((s, b) => s + idx[b].length, 0);
+  let h = `<div class="ap-src">Major treatments only: a sermon's text, or the chapter or passage a work expounds, not passing references. ${n} passages so far, first drawn from the works' short summaries.</div>
+    <div class="bjump" style="margin-top:8px">${books.map(b => `<a class="lk" style="${LIB.book === b ? "font-weight:700" : ""}" onclick="LIB.book='${b}'; renderLibrary()">${b.replace("Song of Solomon", "Song")}&nbsp;${idx[b].length}</a>`).join("")}
+    <a class="lk" onclick="LIB.book=''; renderLibrary()">All</a></div>`;
+  const show = LIB.book ? [LIB.book] : books;
+  h += show.map(b => `<div class="bk"><h4>${b}</h4>${(idx[b] || []).map(libRefRow).join("")}</div>`).join("");
+  return h;
+}
+function libScrollRef() {
+  if (!LIB.scrollRef) return;
+  const el = [...document.querySelectorAll("#lbody .sref")].find(d => d.dataset.ref === LIB.scrollRef);
+  LIB.scrollRef = "";
+  if (el) { el.scrollIntoView({ block: "center" }); el.style.background = "#fdf3d8"; }
+}
 async function libSearch() {
   const body = document.getElementById("lbody");
   if (!LIB.q) { renderLibrary(); return; }
@@ -2445,7 +2538,16 @@ async function libSearch() {
   catch (e) { body.innerHTML = `<div class="pr-empty">Search failed: ${esc(e.message || String(e))}</div>`; return; }
   const hl = s => esc(s || "").replace(/&lt;&lt;/g, "<mark>").replace(/&gt;&gt;/g, "</mark>");
   const pid = n => ((DATA.persons || []).find(p => p.n === n) || {}).id;
-  body.innerHTML = `<div class="ap-sec">${rows.length} matches for “${esc(LIB.q)}”</div>` + rows.map(r => r.kind === "person"
+  let top = "";
+  const ql = LIB.q.toLowerCase(), c = libTopicCounts();
+  const tmatch = Object.values(TOPIC_GROUPS).flat().filter(t => c[t] && (t.toLowerCase() === ql || (ql.length >= 4 && t.toLowerCase().includes(ql))));
+  if (tmatch.length) top += `<div class="hit">Topic: ${tmatch.map(t => `<a class="tag" onclick="libTopic(${JSON.stringify(t).replace(/"/g, "&quot;")})">${esc(t)} · ${c[t]} works</a>`).join(" ")}</div>`;
+  const qr = parseRef(LIB.q) || (BIBLE.find(b => b.toLowerCase() === ql.replace(/^psalm$/, "psalms")) ? { b: BIBLE.find(b => b.toLowerCase() === ql.replace(/^psalm$/, "psalms")), c: 1, c2: 999 } : null);
+  if (qr) {
+    const hits = (libScriptureIndex()[qr.b] || []).filter(e => refOverlap(e.p, qr));
+    top += `<div class="ap-sec" style="margin-top:6px">Scripture index: ${hits.length} work${hits.length === 1 ? "" : "s"} treating ${esc(LIB.q)}</div>${hits.map(libRefRow).join("")}`;
+  }
+  body.innerHTML = top + `<div class="ap-sec" style="margin-top:14px">${rows.length} text matches for “${esc(LIB.q)}”</div>` + rows.map(r => r.kind === "person"
     ? `<div class="hit"><b><a class="lk" onclick="apOpen('${pid(r.key)}')">${esc(r.label)}</a></b> <span class="ap-src">· author</span><div class="ap-src">${hl(r.snippet)}</div></div>`
     : `<div class="hit"><span style="color:var(--accent);font-weight:600">${r.yr || ""}</span> <i>${esc(r.label)}</i>${r.authors ? ` <span class="ap-src">· ${(r.authors || "").split(", ").map(a => pid(a) ? `<a class="lk" onclick="apOpen('${pid(a)}', ${JSON.stringify(r.key).replace(/"/g, "&quot;")})">${esc(a)}</a>` : esc(a)).join(", ")}</span>` : ""}
       <div class="ap-src">${hl(r.snippet)}</div></div>`).join("");
