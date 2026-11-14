@@ -296,6 +296,40 @@
     #printArea .pr-head img { width: 1.1in !important; height: auto; max-height: none; border: 1px solid #ddd; margin: 0; }
     #printArea a { color: #1d4ed8; }
   }
+  /* ---- author pages and library ---- */
+  .ap-tabs { display: flex; gap: 2px; margin-right: 10px; }
+  .ap-tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 5px 12px; font-weight: 600; color: var(--muted); }
+  .ap-tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
+  .ap-sec { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 6px; font-weight: 600; }
+  .ap-glance { font-size: 13.5px; }
+  .ap-glance .r { display: flex; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .ap-glance .y { color: var(--accent); font-weight: 600; min-width: 92px; }
+  details.ap-bio { margin-top: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  details.ap-bio > summary { cursor: pointer; padding: 9px 12px; font-weight: 600; }
+  .ap-md { padding: 4px 16px 14px; line-height: 1.65; font-size: 14px; max-width: 760px; }
+  .ap-md h4 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 16px 0 4px; }
+  .ap-md p { margin: 0 0 10px; }
+  .ap-md ul { margin: 0 0 10px 20px; }
+  .ap-md blockquote { margin: 8px 0; padding: 2px 12px; border-left: 3px solid var(--line); font-family: Georgia, serif; }
+  .ap-md .basis, .ap-src { font-size: 12px; color: var(--muted); }
+  details.lw { border-bottom: 1px solid var(--line); }
+  details.lw > summary { cursor: pointer; padding: 7px 0; display: flex; gap: 10px; align-items: baseline; list-style: none; }
+  details.lw > summary::-webkit-details-marker { display: none; }
+  details.lw > summary::before { content: "▸"; color: var(--muted); font-size: 11px; }
+  details.lw[open] > summary::before { content: "▾"; }
+  details.lw .y { color: var(--accent); font-weight: 600; min-width: 40px; }
+  details.lw .chip { font-size: 10.5px; padding: 1px 7px; border-radius: 10px; background: #efe9fb; color: var(--accent); white-space: nowrap; }
+  details.lw .lwbody { padding: 2px 0 12px 22px; }
+  #library { position: fixed; top: 52px; left: 218px; right: 0; bottom: 0; z-index: 41; background: var(--bg); overflow-y: auto; display: none; }
+  #library.open { display: block; }
+  #library .lbar { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; z-index: 2; }
+  #library .lbody { max-width: 980px; margin: 0 auto; padding: 18px 28px 60px; }
+  #library .hit { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  #library .hit mark { background: #fde68a; }
+  #library .alist { columns: 3 220px; font-size: 13.5px; }
+  #library .alist div { break-inside: avoid; padding: 2px 0; }
+  a.lk { color: var(--accent); cursor: pointer; text-decoration: none; }
+  a.lk:hover { text-decoration: underline; }
   /* ---- print / PDF ---- */
   #printArea { display: none; }
   @media print {
@@ -327,7 +361,8 @@
   <span id="netState"></span>
   <div class="spacer"></div>
   <select id="personSel" title="Focus on a person"></select>
-  <button id="preportBtn" title="Report on the focused person" style="display:none">Person report</button>
+  <button id="preportBtn" title="Open the author page for the focused person" style="display:none">Author page</button>
+  <button id="libraryBtn" title="Library: search all authors and works">Library</button>
   <button id="addBtn" title="Add a new event">+ Add event</button>
   <button id="reportBtn" title="Report for a date range">Report</button>
   <button id="importBtn" title="Bulk import JSON">Import</button>
@@ -980,7 +1015,7 @@ function showDetail(ev) {
       text-transform:uppercase;letter-spacing:.05em">${esc(lane.name)}</div>
     ${portrait}
     <h3>${esc(ev.t)}</h3>
-    ${subj ? `<button style="margin:2px 0 6px" onclick="setFocus('${subj.id}'); openPersonReport()">Person report</button>` : ""}
+    ${subj ? `<button style="margin:2px 0 6px" onclick="setFocus('${subj.id}'); PR.tab='overview'; openPersonReport()">Author page</button>` : ""}
     <div class="date">${esc(evDateLabel(ev))}</div>
     ${ev.dar ? `<div class="dar">as recorded: ${esc(ev.dar)}</div>` : ""}
     <div class="badges">${badges}${confBadge}</div>
@@ -1872,6 +1907,7 @@ async function startApp() {
   document.getElementById("gate").classList.remove("show");
   try { PORTRAITS = await (await fetch("portraits/portraits.json", { cache: "no-cache" })).json(); } catch (e) { PORTRAITS = {}; }
   applyData(await loadPayload());
+  setTimeout(() => { try { apRoute(); } catch (e) {} }, 50);
   resize();
 }
 function showGate(msg) {
@@ -2020,8 +2056,8 @@ if ("serviceWorker" in navigator)
 
 
 // ---------- person report (author view, graphic + text, PDF) ----------
-// (rev 2026-11-11b)
-const PR = { view: "graphic", works: "all", afterDeath: false, textGroup: "lane", from: "", to: "", paper: "letter", content: "both", pid: "" };
+// (rev 2026-11-13)
+const PR = { tab: "overview", view: "graphic", works: "all", afterDeath: false, textGroup: "lane", from: "", to: "", paper: "letter", content: "both", pid: "" };
 function prLife(pid) {
   return EVENTS.find(e => e.lane === livesLaneId && e.people.some(p => p.id === pid && p.role === "subject"));
 }
@@ -2215,10 +2251,17 @@ function refreshPersonReport() {
   PR.pid = pid;
   const items = prItems(pid);
   PR.hasPost = items.some(i => i.post);
-  document.getElementById("pbar").innerHTML = prBar();
-  document.getElementById("pbody").innerHTML = prHead(pid) +
+  const tabs = `<span class="ap-tabs">${[["overview", "Overview"], ["timeline", "Life timeline"], ["works", `Works (${worksBy(pid).length})`]]
+    .map(([v, l]) => `<button class="${PR.tab === v ? "on" : ""}" onclick="PR.tab='${v}'; refreshPersonReport(); apHash()">${l}</button>`).join("")}</span>`;
+  document.getElementById("pbar").innerHTML = tabs + (PR.tab === "timeline" ? prBar()
+    : `<span style="flex:1"></span><button onclick="openLibrary()">Library</button><button onclick="closePersonReport()" title="Back to the timeline">← Timeline</button>`);
+  const body = document.getElementById("pbody");
+  if (PR.tab === "overview") { body.innerHTML = prHead(pid) + apOverview(pid); apLoadBio(pid); }
+  else if (PR.tab === "works") { body.innerHTML = prHead(pid) + apWorks(pid); apLoadWorkFlags(pid); }
+  else body.innerHTML = prHead(pid) +
     `<p class="pr-note">Showing the ticked lanes from the left-hand panel. General context events follow the detail level setting; this person's own events always show.</p>` +
     (PR.view === "graphic" ? prGraphic(pid, items) : prText(pid, items));
+  apHash();
 }
 function openPersonReport() {
   if (!focusPerson) return;
@@ -2227,11 +2270,11 @@ function openPersonReport() {
   prBtn(true);
   refreshPersonReport();
 }
-function closePersonReport() { const el = document.getElementById("preport"); if (el) el.classList.remove("open"); prBtn(false); }
+function closePersonReport() { const el = document.getElementById("preport"); if (el) el.classList.remove("open"); prBtn(false); apHash(); }
 function prBtn(open) {
   const b = document.getElementById("preportBtn"); if (!b) return;
-  b.textContent = open ? "← Back to timeline" : "Person report";
-  b.title = open ? "Close the person report and return to the timeline" : "Report on the focused person";
+  b.textContent = open ? "← Back to timeline" : "Author page";
+  b.title = open ? "Close the author page and return to the timeline" : "Open the author page for the focused person";
   b.classList.toggle("on", open);
 }
 function printPersonReport() {
@@ -2252,6 +2295,180 @@ function printPersonReport() {
 document.getElementById("preportBtn").addEventListener("click", () => {
   const el = document.getElementById("preport");
   el.classList.contains("open") ? closePersonReport() : openPersonReport();
+});
+
+// ---------- author pages (overview, works) and library ----------
+const AP = { bio: {}, flags: {}, sums: {}, openWork: "" };
+function pName(pid) { return ((DATA.persons || []).find(p => p.id === pid) || {}).n || ""; }
+function mdHTML(md) {   // small Markdown subset: ### headings, - bullets, > quotes, **b**, *i*, [t](url)
+  const inl = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<i>$1</i>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1 ↗</a>');
+  const out = []; let list = null, para = [];
+  const flush = () => { if (para.length) { out.push(`<p>${inl(para.join(" "))}</p>`); para = []; }
+    if (list) { out.push(`<ul>${list.map(x => `<li>${inl(x)}</li>`).join("")}</ul>`); list = null; } };
+  for (const raw of String(md || "").split("\n")) {
+    const l = raw.trim();
+    if (!l) { flush(); continue; }
+    let m;
+    if ((m = l.match(/^#{2,4}\s+(.*)/))) { flush(); out.push(`<h4>${inl(m[1])}</h4>`); }
+    else if ((m = l.match(/^[-*]\s+(.*)/))) { if (para.length) { out.push(`<p>${inl(para.join(" "))}</p>`); para = []; } (list = list || []).push(m[1]); }
+    else if ((m = l.match(/^>\s?(.*)/))) { flush(); out.push(`<blockquote>${inl(m[1])}</blockquote>`); }
+    else { if (list) flush(); para.push(l); }
+  }
+  flush();
+  return out.join("");
+}
+function apGlanceItems(pid) {
+  const keep = { from: PR.from, to: PR.to, after: PR.afterDeath, hadP: activeLanes.has(personalLaneId) };
+  PR.from = ""; PR.to = ""; PR.afterDeath = false; activeLanes.add(personalLaneId);
+  const items = prItems(pid).filter(i => i.kind === "personal");
+  PR.from = keep.from; PR.to = keep.to; PR.afterDeath = keep.after; if (!keep.hadP) activeLanes.delete(personalLaneId);
+  return items;
+}
+function apOverview(pid) {
+  const g = apGlanceItems(pid);
+  const rows = g.length ? g.map(it => `<div class="r"><span class="y">${esc(evDateLabel(it.ev))}</span><span>${esc(it.ev.t.replace(/^[^:]{1,30}:\s*/, ""))}</span></div>`).join("")
+    : `<div class="pr-empty">No life events recorded yet.</div>`;
+  return `<div class="ap-sec">Life at a glance</div><div class="ap-glance">${rows}</div>
+    <details class="ap-bio" id="apBio"><summary>Full biography <span class="ap-src" id="apBioNote">· loading…</span></summary><div class="ap-md" id="apBioBody"></div></details>`;
+}
+async function apLoadBio(pid) {
+  const n = pName(pid);
+  if (!(n in AP.bio) && sb) {
+    try { const r = await sb.from("person").select("long_bio,long_bio_sources,long_bio_basis").eq("display_name", n).maybeSingle(); AP.bio[n] = r.data || {}; }
+    catch (e) { AP.bio[n] = {}; }
+  }
+  const b = AP.bio[n] || {}, note = document.getElementById("apBioNote"), body = document.getElementById("apBioBody");
+  if (!note || !body) return;
+  if (!b.long_bio) { note.textContent = "· not yet written"; body.innerHTML = `<p class="ap-src" style="padding-top:8px">The full biography for ${esc(n)} hasn't been written yet. The short biography above is the current summary.</p>`; return; }
+  note.textContent = "· AI summary" + (b.long_bio_basis ? " based on " + b.long_bio_basis : "");
+  const src = (b.long_bio_sources || []).map(s => s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a>` : esc(s.label)).join(" · ");
+  body.innerHTML = `<p><span class="ailabel">AI Summary.</span></p>` + mdHTML(b.long_bio) + (src ? `<div class="basis"><b>Sources:</b> ${src}</div>` : "");
+}
+function apWorkItem(w, opts) {
+  const id = "lw-" + btoa(unescape(encodeURIComponent(w.title))).replace(/[^a-z0-9]/gi, "").slice(0, 40);
+  const by = opts && opts.showAuthor ? (w.authors || []).map(a => `<a class="lk" onclick="event.preventDefault(); apOpen('${a}')">${esc(pName(a))}</a>`).join(", ") : "";
+  return `<details class="lw" id="${id}" data-title="${esc(w.title).replace(/"/g, "&quot;")}" ontoggle="if(this.open) apLoadSummary(this)">
+    <summary><span class="y">${w.year || "—"}</span><span><i>${esc(w.title)}</i>${by ? ` <span class="ap-src">· ${by}</span>` : ""}</span>
+    <span class="chip" data-chip style="display:none">full summary</span></summary>
+    <div class="lwbody">${w.summary ? `<div style="font-size:13.5px"><span class="ap-src">At a glance:</span> ${esc(w.summary_kind === "quote" ? "“" + w.summary + "”" : w.summary)}</div>` : ""}
+      <div class="ap-md" data-long style="padding-left:0"></div>
+      <div class="ap-src">${[w.text_url ? `<a href="${esc(w.text_url)}" target="_blank" rel="noopener">${w.modern_url ? "Original edition" : "Read the text"} ↗</a>` : "",
+        w.modern_url ? `<a href="${esc(w.modern_url)}" target="_blank" rel="noopener">Modern edition ↗</a>` : "",
+        w.text_url || w.modern_url ? "" : "No online text located"].filter(Boolean).join(" · ")}</div></div></details>`;
+}
+function apWorks(pid) {
+  const ws = worksBy(pid);
+  if (!ws.length) return `<div class="ap-sec">Works</div><div class="pr-empty">No printed works recorded for ${esc(pName(pid))}.</div>`;
+  return `<div class="ap-sec">Works (${ws.length}) · expand a title for its summary</div>${ws.map(w => apWorkItem(w)).join("")}`;
+}
+async function apLoadWorkFlags(pid) {
+  if (!sb) return;
+  if (!(pid in AP.flags)) {
+    try { const r = await sb.from("work").select("title, work_person!inner(person_id)").eq("work_person.person_id", pid).not("long_summary", "is", null);
+      AP.flags[pid] = new Set((r.data || []).map(x => x.title)); } catch (e) { AP.flags[pid] = new Set(); }
+  }
+  document.querySelectorAll("#pbody details.lw").forEach(d => { if (AP.flags[pid].has(d.dataset.title)) d.querySelector("[data-chip]").style.display = ""; });
+  if (AP.openWork) { const d = [...document.querySelectorAll("#pbody details.lw")].find(d => d.dataset.title === AP.openWork);
+    if (d) { d.open = true; d.scrollIntoView({ block: "start" }); } AP.openWork = ""; }
+}
+async function apLoadSummary(d) {
+  const t = d.dataset.title, box = d.querySelector("[data-long]");
+  if (!box || box.dataset.done) return;
+  if (!(t in AP.sums) && sb) {
+    try { const r = await sb.from("work").select("long_summary,long_summary_basis,merged_note").eq("title", t).maybeSingle(); AP.sums[t] = r.data || {}; }
+    catch (e) { AP.sums[t] = {}; }
+  }
+  const x = AP.sums[t] || {};
+  box.dataset.done = 1;
+  box.innerHTML = x.long_summary
+    ? `<p><span class="ailabel">AI Summary.</span></p>${mdHTML(x.long_summary)}${x.long_summary_basis ? `<div class="basis">Based on ${esc(x.long_summary_basis)}</div>` : ""}${x.merged_note ? `<div class="basis">${esc(x.merged_note)}</div>` : ""}`
+    : `<div class="ap-src" style="margin:6px 0">Full summary not yet written.</div>`;
+}
+function apOpen(pid, workTitle) {
+  closeLibrary(false);
+  setFocus(pid); PR.tab = workTitle ? "works" : "overview"; AP.openWork = workTitle || "";
+  openPersonReport();
+}
+// ----- library -----
+const LIB = { q: "", mode: "authors", author: "", decade: "" };
+function openLibrary() {
+  closePersonReport();
+  document.getElementById("library").classList.add("open");
+  const b = document.getElementById("libraryBtn"); b.textContent = "← Back to timeline"; b.classList.add("on");
+  renderLibrary(); apHash();
+}
+function closeLibrary(hash = true) {
+  const el = document.getElementById("library"); if (!el) return;
+  el.classList.remove("open");
+  const b = document.getElementById("libraryBtn"); b.textContent = "Library"; b.classList.remove("on");
+  if (hash) apHash();
+}
+function libAuthors() {
+  const counts = {};
+  for (const w of DATA.works || []) for (const a of w.authors || []) counts[a] = (counts[a] || 0) + 1;
+  return (DATA.persons || []).filter(p => counts[p.id] || LIVES_SUBJECTS.has(p.id))
+    .map(p => ({ id: p.id, n: p.n, sort: p.sort_name || p.n, c: counts[p.id] || 0 }))
+    .sort((a, b) => a.sort.localeCompare(b.sort));
+}
+function renderLibrary() {
+  const bar = document.getElementById("lbar"), body = document.getElementById("lbody");
+  const seg = `<span class="seg">${[["authors", "Authors"], ["works", "Works"]].map(([v, l]) =>
+    `<button class="${LIB.mode === v ? "on" : ""}" onclick="LIB.mode='${v}'; renderLibrary()">${l}</button>`).join("")}</span>`;
+  const authors = libAuthors();
+  bar.innerHTML = `<input id="libQ" type="search" placeholder="Search titles, summaries and biographies…" value="${esc(LIB.q)}" style="flex:1;min-width:240px">
+    ${seg}
+    ${LIB.mode === "works" && !LIB.q ? `<select onchange="LIB.author=this.value; renderLibrary()"><option value="">All authors</option>${authors.filter(a => a.c).map(a => `<option value="${a.id}" ${LIB.author === a.id ? "selected" : ""}>${esc(a.n)} (${a.c})</option>`).join("")}</select>
+      <select onchange="LIB.decade=this.value; renderLibrary()"><option value="">All decades</option>${Array.from({ length: 19 }, (_, i) => 1550 + i * 10).map(d => `<option value="${d}" ${String(LIB.decade) === String(d) ? "selected" : ""}>${d}s</option>`).join("")}</select>` : ""}
+    <button onclick="closeLibrary()">← Timeline</button>`;
+  const q = document.getElementById("libQ");
+  q.addEventListener("input", () => { clearTimeout(LIB.t); LIB.t = setTimeout(() => { LIB.q = q.value.trim(); libSearch(); }, 300); });
+  if (LIB.q) { libSearch(); return; }
+  if (LIB.mode === "authors") {
+    body.innerHTML = `<div class="ap-sec">Authors (${authors.length})</div><div class="alist">${authors.map(a =>
+      `<div><a class="lk" onclick="apOpen('${a.id}')">${esc(a.n)}</a> <span class="ap-src">${a.c ? a.c + " works" : ""}</span></div>`).join("")}</div>`;
+  } else {
+    let ws = (DATA.works || []).slice();
+    if (LIB.author) ws = ws.filter(w => (w.authors || []).includes(LIB.author));
+    if (LIB.decade) ws = ws.filter(w => w.year && Math.floor(w.year / 10) * 10 === +LIB.decade);
+    ws.sort((a, b) => (a.year || 9999) - (b.year || 9999) || a.title.localeCompare(b.title));
+    const shown = ws.slice(0, 400);
+    body.innerHTML = `<div class="ap-sec">Works (${ws.length}${ws.length > 400 ? ", first 400 shown; narrow by author or decade" : ""})</div>${shown.map(w => apWorkItem(w, { showAuthor: true })).join("")}`;
+  }
+}
+async function libSearch() {
+  const body = document.getElementById("lbody");
+  if (!LIB.q) { renderLibrary(); return; }
+  body.innerHTML = `<div class="ap-src">Searching…</div>`;
+  let rows = [];
+  try { const r = await sb.rpc("search_library", { q: LIB.q, lim: 120 }); rows = r.data || []; if (r.error) throw r.error; }
+  catch (e) { body.innerHTML = `<div class="pr-empty">Search failed: ${esc(e.message || String(e))}</div>`; return; }
+  const hl = s => esc(s || "").replace(/&lt;&lt;/g, "<mark>").replace(/&gt;&gt;/g, "</mark>");
+  const pid = n => ((DATA.persons || []).find(p => p.n === n) || {}).id;
+  body.innerHTML = `<div class="ap-sec">${rows.length} matches for “${esc(LIB.q)}”</div>` + rows.map(r => r.kind === "person"
+    ? `<div class="hit"><b><a class="lk" onclick="apOpen('${pid(r.key)}')">${esc(r.label)}</a></b> <span class="ap-src">· author</span><div class="ap-src">${hl(r.snippet)}</div></div>`
+    : `<div class="hit"><span style="color:var(--accent);font-weight:600">${r.yr || ""}</span> <i>${esc(r.label)}</i>${r.authors ? ` <span class="ap-src">· ${(r.authors || "").split(", ").map(a => pid(a) ? `<a class="lk" onclick="apOpen('${pid(a)}', ${JSON.stringify(r.key).replace(/"/g, "&quot;")})">${esc(a)}</a>` : esc(a)).join(", ")}</span>` : ""}
+      <div class="ap-src">${hl(r.snippet)}</div></div>`).join("");
+}
+// ----- addresses: #/author/<name>[/works], #/library -----
+function apHash() {
+  let h = "";
+  if (document.getElementById("library")?.classList.contains("open")) h = "#/library";
+  else if (document.getElementById("preport")?.classList.contains("open") && PR.pid)
+    h = "#/author/" + encodeURIComponent(pName(PR.pid)) + (PR.tab !== "overview" ? "/" + PR.tab : "");
+  if (location.hash !== h) history.replaceState(null, "", h || location.pathname + location.search);
+}
+function apRoute() {
+  const m = location.hash.match(/^#\/author\/([^/]+)(?:\/(\w+))?/);
+  if (m) { const p = (DATA.persons || []).find(p => p.n === decodeURIComponent(m[1])); if (p) { setFocus(p.id); PR.tab = m[2] || "overview"; openPersonReport(); } }
+  else if (location.hash === "#/library") openLibrary();
+}
+document.getElementById("libraryBtn").addEventListener("click", () =>
+  document.getElementById("library").classList.contains("open") ? closeLibrary() : openLibrary());
+cv.addEventListener("dblclick", e => {
+  const ev = eventAt(e);
+  const subj = ev && ev.lane === livesLaneId && ev.people.find(p => p.role === "subject");
+  if (subj) apOpen(subj.id);
 });
 // sidebar sections: remember open/closed per section
 document.querySelectorAll("aside details.sec").forEach(d => {
@@ -2274,5 +2491,6 @@ window.addEventListener("resize", fitPeople);
 requestAnimationFrame(fitPeople);
 </script>
 <div id="preport"><div class="pbar" id="pbar"></div><div class="pbody" id="pbody"></div></div>
+<div id="library"><div class="lbar" id="lbar"></div><div class="lbody" id="lbody"></div></div>
 </body>
 </html>
